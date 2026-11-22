@@ -1,0 +1,11 @@
+# Continuous SQLite replication (docs/06: Litestream). Values come from the environment:
+#   DATABASE_PATH           e.g. /data/parksmart.db (set in the image)
+#   LITESTREAM_REPLICA_URL  e.g. s3://parksmart-backups-ap-south-1/prod
+#   LITESTREAM_ACCESS_KEY_ID, LITESTREAM_SECRET_ACCESS_KEY (or an instance role)
+dbs:
+  - path: ${DATABASE_PATH}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        # Keep 30 days of snapshots and WAL for point-in-time restore.
+        retention: 720h
+        snapshot-interval: 24h

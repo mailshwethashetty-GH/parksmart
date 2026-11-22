@@ -3,6 +3,10 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 14, 15, CLAUDE.md — Added operations runbook and gate guide — pilot launch needs both (M8, D4)
+- 2026-11-22 — 12 — ADR-014 (SSO provider, first admins and first-run setup from env), ADR-015 (rate limit per session) — a fresh production install had no way in; offices share one IP
+- 2026-11-22 — 06, 07, 09, 10 — Docker/Caddy/Litestream, Sentry, e2e workspace, CI jobs, new env vars; `PATCH /admin/users/:id/role`; People tab — built in M8
+- 2026-11-22 — 04, 11, 13 — FR-21 Done; FR-29 note; D2/D4 status; R13, R14; M8 Done (repo side) — built in M8
 - 2026-11-22 — 04, 13 — FR-16 and FR-25 Done; FR-28 In progress (P0 done); M7 Done — built in M7
 - 2026-11-22 — 07, 08 — `notifications` job and email outbox (cap, quiet hours, `stale` after 30 min); `notifications.skipped_reason`; consent purposes and account-deletion anonymisation — built in M7
 - 2026-11-22 — 09, 10 — `/me` inbox, profile, vehicles, consents, export/delete; `/admin/reports/monthly` and `/export?month=`; profile, consent card, inbox bell and analytics screens — built in M7

@@ -3,11 +3,19 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { API_BASE, AUTH_BASE } from '@parksmart/shared';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { createHash } from 'node:crypto';
 import fp from 'fastify-plugin';
 import { AppError } from '../lib/errors';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const SESSION_COOKIE = /(?:^|;\s*)(?:__Secure-)?parksmart\.session_token=([^;]+)/;
+
+/** Rate-limit bucket: a hash of the session token when signed in, else the client IP. */
+export function rateLimitKey(req: FastifyRequest): string {
+  const token = SESSION_COOKIE.exec(req.headers.cookie ?? '')?.[1];
+  return token ? `s:${createHash('sha256').update(token).digest('base64url')}` : `ip:${req.ip}`;
+}
 
 export const securityPlugin = fp(async (app: FastifyInstance) => {
   const isProd = app.env.NODE_ENV === 'production';
@@ -20,6 +28,9 @@ export const securityPlugin = fp(async (app: FastifyInstance) => {
   await app.register(fastifyRateLimit, {
     max: 300,
     timeWindow: '1 minute',
+    // Per signed-in session, not per IP: a whole office often shares one public IP,
+    // and the 09:00 peak would otherwise throttle everyone at once.
+    keyGenerator: rateLimitKey,
     errorResponseBuilder: (_req, ctx) =>
       new AppError(429, 'RATE_LIMITED', `Too many requests. Try again in ${ctx.after}.`),
   });

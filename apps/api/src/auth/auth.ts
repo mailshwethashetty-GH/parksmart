@@ -11,6 +11,7 @@ import { APIError } from 'better-auth/api';
 import type { Env } from '../config/env';
 import { resolveHomeForEmail } from '../services/user-onboarding';
 import { devLogin } from './dev-login';
+import { idpOrigins, roleForNewUser, ssoProvidersFromEnv } from './sso-config';
 
 export function createAuth(db: Db, env: Env) {
   return betterAuth({
@@ -18,7 +19,7 @@ export function createAuth(db: Db, env: Env) {
     baseURL: env.APP_URL,
     basePath: AUTH_BASE,
     secret: env.SESSION_SECRET,
-    trustedOrigins: [env.APP_URL],
+    trustedOrigins: [env.APP_URL, ...idpOrigins(env)],
     database: drizzleAdapter(db, {
       provider: 'sqlite',
       schema: {
@@ -49,6 +50,11 @@ export function createAuth(db: Db, env: Env) {
     advanced: {
       useSecureCookies: env.NODE_ENV === 'production',
       cookiePrefix: 'parksmart',
+      // Production runs behind Caddy, which sets X-Forwarded-For (and drops it from
+      // untrusted clients), so Better Auth's sign-in rate limit sees real client IPs.
+      ...(env.NODE_ENV === 'production'
+        ? { ipAddress: { ipAddressHeaders: ['x-forwarded-for'] } }
+        : {}),
     },
     databaseHooks: {
       user: {
@@ -60,7 +66,8 @@ export function createAuth(db: Db, env: Env) {
                 message: 'Your organisation is not set up for ParkSmart.',
               });
             }
-            return { data: { ...user, ...home, role: 'employee', active: true } };
+            const role = roleForNewUser(env, user.email);
+            return { data: { ...user, ...home, role, active: true } };
           },
         },
       },
@@ -68,6 +75,7 @@ export function createAuth(db: Db, env: Env) {
     plugins: [
       sso({
         schema: { ssoProvider: { modelName: 'ssoProviders' } },
+        defaultSSO: ssoProvidersFromEnv(env),
         // Only admins may register an identity provider for their org.
         providersLimit: (user) => ((user as { role?: string }).role === 'admin' ? 5 : 0),
       }),

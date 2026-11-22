@@ -1,0 +1,38 @@
+# Single-host production: the app (with Litestream) and Caddy.
+#   cp .env.example .env.production   # fill in secrets; never commit it
+#   DOMAIN=parking.example.com docker compose -f deploy/docker-compose.yml up -d --build
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: parksmart:latest
+    env_file: ../.env.production
+    environment:
+      NODE_ENV: production
+      DEV_LOGIN_ENABLED: 'false'
+    volumes:
+      - parksmart-data:/data
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+  caddy:
+    image: caddy:2.10-alpine
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN, e.g. parking.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  parksmart-data:
+  caddy-data:
+  caddy-config:

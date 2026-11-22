@@ -2,6 +2,7 @@ import { auditLog, eq } from '@parksmart/db';
 import { API_BASE, AUTH_BASE, CSRF_HEADER } from '@parksmart/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadEnv } from './config/env';
+import { roleForNewUser, ssoProvidersFromEnv } from './auth/sso-config';
 import { requireRole } from './plugins/auth';
 import { writeAudit } from './services/audit';
 import { resolveHomeForEmail } from './services/user-onboarding';
@@ -32,6 +33,22 @@ describe('system', () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: 'ok', db: 'ok' });
+  });
+
+  it('rate-limits per session, not per shared office IP', async () => {
+    const { app } = await setup();
+    const get = (cookie?: string) =>
+      app.inject({
+        method: 'GET',
+        url: `${API_BASE}/csrf-token`,
+        headers: cookie ? { cookie } : {},
+      });
+    const a = 'parksmart.session_token=aaa.sig';
+    for (let i = 0; i < 300; i++) expect((await get(a)).statusCode).toBe(200);
+    expect((await get(a)).statusCode).toBe(429);
+    // Someone else behind the same IP is unaffected, signed in or not.
+    expect((await get('__Secure-parksmart.session_token=bbb.sig')).statusCode).toBe(200);
+    expect((await get()).statusCode).toBe(200);
   });
 
   it('unknown API routes return the standard error body', async () => {
@@ -102,6 +119,14 @@ describe('auth and roles (FR-29)', () => {
   });
 });
 
+/** A production config needs an identity provider (ADR-014). */
+const PROD_SSO = {
+  NODE_ENV: 'production',
+  ORG_EMAIL_DOMAIN: 'parksmart.test',
+  SSO_GOOGLE_CLIENT_ID: 'client-id.apps.googleusercontent.com',
+  SSO_GOOGLE_CLIENT_SECRET: 'client-secret',
+};
+
 describe('dev login is disabled in production (non-negotiable #6)', () => {
   it('refuses to start with DEV_LOGIN_ENABLED=true in production', () => {
     expect(() =>
@@ -110,8 +135,8 @@ describe('dev login is disabled in production (non-negotiable #6)', () => {
   });
 
   it('turns dev login off in production by default and the route does not exist', async () => {
-    expect(loadEnv({ ...TEST_ENV, NODE_ENV: 'production' }).devLoginEnabled).toBe(false);
-    const { app } = await setup({ NODE_ENV: 'production' });
+    expect(loadEnv({ ...TEST_ENV, ...PROD_SSO }).devLoginEnabled).toBe(false);
+    const { app } = await setup(PROD_SSO);
     const res = await app.inject({
       method: 'POST',
       url: `${AUTH_BASE}/dev/sign-in`,
@@ -122,12 +147,78 @@ describe('dev login is disabled in production (non-negotiable #6)', () => {
   });
 
   it('treats an empty DEV_LOGIN_ENABLED as unset (off in production)', () => {
-    const env = loadEnv({ ...TEST_ENV, NODE_ENV: 'production', DEV_LOGIN_ENABLED: '' });
+    const env = loadEnv({ ...TEST_ENV, ...PROD_SSO, DEV_LOGIN_ENABLED: '' });
     expect(env.devLoginEnabled).toBe(false);
   });
 
   it('requires strong secrets', () => {
     expect(() => loadEnv({ ...TEST_ENV, SESSION_SECRET: 'short' })).toThrow(/SESSION_SECRET/);
+  });
+});
+
+describe('SSO configuration (ADR-014)', () => {
+  it('refuses to start in production without an identity provider', () => {
+    expect(() => loadEnv({ ...TEST_ENV, NODE_ENV: 'production' })).toThrow(/identity provider/);
+  });
+
+  it('rejects partial, doubled or domain-less provider settings', () => {
+    expect(() => loadEnv({ ...TEST_ENV, SSO_GOOGLE_CLIENT_ID: 'x' })).toThrow(/SECRET/);
+    expect(() =>
+      loadEnv({ ...TEST_ENV, SSO_ENTRA_TENANT_ID: 't', SSO_ENTRA_CLIENT_ID: 'c' }),
+    ).toThrow(/ENTRA/);
+    expect(() =>
+      loadEnv({
+        ...TEST_ENV,
+        ...PROD_SSO,
+        SSO_ENTRA_TENANT_ID: 't',
+        SSO_ENTRA_CLIENT_ID: 'c',
+        SSO_ENTRA_CLIENT_SECRET: 's',
+      }),
+    ).toThrow(/not both/);
+    expect(() => loadEnv({ ...TEST_ENV, ...PROD_SSO, ORG_EMAIL_DOMAIN: '' })).toThrow(
+      /ORG_EMAIL_DOMAIN/,
+    );
+  });
+
+  it('builds the Google or Entra OIDC provider for the org domain', () => {
+    expect(ssoProvidersFromEnv(loadEnv({ ...TEST_ENV, ...PROD_SSO }))).toMatchObject([
+      {
+        domain: 'parksmart.test',
+        providerId: 'google',
+        oidcConfig: { issuer: 'https://accounts.google.com', pkce: true },
+      },
+    ]);
+    const entra = loadEnv({
+      ...TEST_ENV,
+      NODE_ENV: 'production',
+      ORG_EMAIL_DOMAIN: 'Acme.com',
+      SSO_ENTRA_TENANT_ID: 'tenant-1',
+      SSO_ENTRA_CLIENT_ID: 'c',
+      SSO_ENTRA_CLIENT_SECRET: 's',
+    });
+    expect(ssoProvidersFromEnv(entra)).toMatchObject([
+      {
+        domain: 'acme.com',
+        providerId: 'entra',
+        oidcConfig: {
+          issuer: 'https://login.microsoftonline.com/tenant-1/v2.0',
+          discoveryEndpoint:
+            'https://login.microsoftonline.com/tenant-1/v2.0/.well-known/openid-configuration',
+        },
+      },
+    ]);
+    expect(ssoProvidersFromEnv(loadEnv(TEST_ENV))).toEqual([]);
+  });
+
+  it('makes only the listed people admins on first sign-in', () => {
+    const env = loadEnv({ ...TEST_ENV, INITIAL_ADMIN_EMAILS: ' Meera@Acme.com, ops@acme.com ' });
+    expect(roleForNewUser(env, 'meera@acme.com')).toBe('admin');
+    expect(roleForNewUser(env, 'OPS@acme.com')).toBe('admin');
+    expect(roleForNewUser(env, 'divya@acme.com')).toBe('employee');
+  });
+
+  it('first-run setup needs the org name, site name and domain together', () => {
+    expect(() => loadEnv({ ...TEST_ENV, SETUP_ORG_NAME: 'Acme' })).toThrow(/First-run setup/);
   });
 });
 

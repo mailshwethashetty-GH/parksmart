@@ -20,6 +20,8 @@ Impact: High / Medium / Low. Risks also carry a likelihood. Update **Status** wh
 | R10 | Waiting for a round feels slower than instant FCFS | Medium | Medium | Weekly answer by Friday; daily by 19:00; track in-window requests | Open |
 | R11 | Badly tuned weights produce unfair outcomes | Medium | High | 50% cap; impact simulation; fairness-spread metric | Open |
 | R12 | Admin does not approve a weekly or daily round by its deadline, delaying results | Medium | High | Reminders, backup admins, "results delayed" notice, day-start auto-publish (ADR-008) | Open |
+| R13 | The single host or its disk fails during the pilot | Low | High | Litestream streams every write to S3 (30 days); restore drill before launch and monthly (runbook `14`); uptime monitor and Sentry | Open |
+| R14 | The production image has not been built on this machine (no Docker locally) | Medium | Medium | CI builds the image and checks it starts and runs first-run setup; the runtime layout was checked locally with `pnpm deploy` | Open |
 
 ## Assumptions
 
@@ -52,9 +54,9 @@ Impact: High / Medium / Low. Risks also carry a likelihood. Update **Status** wh
 | ID | Description | Impact | Needed for | Status |
 | --- | --- | --- | --- | --- |
 | D1 | Pilot site and Facilities Head sign-off | High | Build start | Open |
-| D2 | Site identity provider (Google Workspace or Microsoft Entra) | High | Pilot launch (FR-29) | Open |
+| D2 | Site identity provider (Google Workspace or Microsoft Entra) | High | Pilot launch (FR-29) | Open. App side ready: set `SSO_GOOGLE_*` or `SSO_ENTRA_*` (runbook `14`); needs the IdP app registration and one real sign-in |
 | D3 | Access-control vendor API | Medium | FR-30 (P2) | Open |
-| D4 | QR codes printed; security staff briefed | High | Pilot launch | Open |
+| D4 | QR codes printed; security staff briefed | High | Pilot launch | Open. Stickers print from Site setup; gate guide in `15-gate-guide.md` |
 | D5 | Claude API access | Medium | FR-2, FR-15, FR-17, FR-18 | Open |
 | D6 | Access to employees and admins for interviews | Medium | I3 | Open |
 | D7 | HR data export (join date, role tags) | Medium | Seniority and client-facing factors | Open |

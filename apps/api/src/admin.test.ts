@@ -202,6 +202,44 @@ describe('bay blocks (FR-26)', () => {
   });
 });
 
+describe('roles (FR-29)', () => {
+  const userId = (email: string) =>
+    ctx.db.select().from(users).where(eq(users.email, email)).get()!.id;
+
+  it('makes someone security staff, with a reason in the audit log', async () => {
+    const vikram = userId('vikram@parksmart.test');
+    const res = await admin.patch(`/admin/users/${vikram}/role`, {
+      role: 'security',
+      reason: 'Joins the gate team',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ role: 'security' });
+    const gate = await clientFor(ctx.app, 'vikram@parksmart.test');
+    expect((await gate.get('/gate/today')).status).toBe(200);
+    const entry = ctx.db.select().from(auditLog).where(eq(auditLog.action, 'user.role')).get();
+    expect(entry).toMatchObject({
+      entityId: vikram,
+      beforeJson: { role: 'employee' },
+      afterJson: { role: 'security' },
+      reason: 'Joins the gate team',
+    });
+  });
+
+  it('needs a reason, an admin, and never the admin themself', async () => {
+    const vikram = userId('vikram@parksmart.test');
+    expect((await admin.patch(`/admin/users/${vikram}/role`, { role: 'admin' })).status).toBe(400);
+    expect(
+      (await employee.patch(`/admin/users/${vikram}/role`, { role: 'admin', reason: 'Promote me' }))
+        .status,
+    ).toBe(403);
+    const self = await admin.patch(`/admin/users/${userId('admin@parksmart.test')}/role`, {
+      role: 'employee',
+      reason: 'Stepping down',
+    });
+    expect(self.body.error.code).toBe('OWN_ROLE');
+  });
+});
+
 describe('accessible approvals (FR-13)', () => {
   const userId = (email: string) =>
     ctx.db.select().from(users).where(eq(users.email, email)).get()!.id;

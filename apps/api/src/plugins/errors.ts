@@ -3,6 +3,7 @@ import type { FastifyError, FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import { AppError } from '../lib/errors';
+import { reportError } from '../lib/monitoring';
 
 const CODE_BY_STATUS: Record<number, string> = {
   400: 'VALIDATION_FAILED',
@@ -36,6 +37,7 @@ export const errorsPlugin = fp(async (app: FastifyInstance) => {
       return reply.status(status).send(body(CODE_BY_STATUS[status] ?? 'ERROR', err.message));
     }
     req.log.error({ err }, 'unhandled error');
+    reportError(err, { route: req.routeOptions.url ?? 'unknown', method: req.method });
     return reply.status(500).send(body('INTERNAL', 'Something went wrong.'));
   });
 

@@ -94,20 +94,21 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 | --- | --- |
 | Unit / integration | Vitest, `fastify.inject` |
 | Engine rules | fast-check |
-| End-to-end | Playwright (+ `@axe-core/playwright` for accessibility) |
+| End-to-end | Playwright (+ `@axe-core/playwright`, WCAG 2.1 AA, fails on serious/critical) in the `e2e/` workspace: one serial pilot-week story on a harness with a test-driven clock, plus p95 (< 500 ms) and 4G (< 5 s) checks. `pnpm test:e2e` |
 | API mocking in UI tests | MSW |
 | Lint / format | ESLint + Prettier (or Biome) |
 | Git hooks | Husky + lint-staged |
-| CI | GitHub Actions: lint → typecheck → test → build |
+| CI | GitHub Actions: lint → format → typecheck → test → build; then e2e (report uploaded on failure) and a Docker build that checks the image starts healthy |
 
 ## Deployment
 
 - API build: `esbuild` bundles `apps/api` and the workspace packages into `apps/api/dist/server.js`; npm dependencies stay external (so every runtime dependency of a bundled workspace package must also be listed in `apps/api`). Migrations are copied next to the bundle and applied at startup.
-- Single Docker image: Fastify serves API + built web app.
-- **Caddy** reverse proxy for automatic HTTPS.
+- Single Docker image (`Dockerfile`, Node 22 bookworm-slim, runs as `node` under `tini`): Fastify serves API + built web app; `pnpm deploy --prod` gives the API a production-only `node_modules`. Docker `HEALTHCHECK` on `/health`.
+- **Litestream** 0.3 in the image: with `LITESTREAM_REPLICA_URL` set, the entrypoint restores an empty volume from the replica, then runs the app under `litestream replicate` (S3 `ap-south-1`, 30-day retention). Config in `deploy/litestream.yml`.
+- **Caddy** reverse proxy for automatic HTTPS and gzip/zstd (`deploy/Caddyfile`, `deploy/docker-compose.yml`).
 - Host: AWS Lightsail/EC2 (ap-south-1, Mumbai) or Azure Central India, with a persistent volume for `data/`.
 - **Not** Vercel, Netlify or other serverless hosts (temporary file systems break SQLite and the scheduler).
-- Monitoring: `/health`, Better Stack or UptimeRobot, Sentry.
+- Monitoring: `/health`, Better Stack or UptimeRobot, Sentry (`@sentry/node`, API errors and failed jobs; all Sentry 11 data collection off and events scrubbed: no user, cookies, bodies, query strings or AI inputs). Steps in `14-operations-runbook.md`.
 
 ## Environment variables (initial)
 
@@ -115,12 +116,16 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 NODE_ENV, PORT, APP_URL
 DATABASE_PATH=./data/parksmart.db
 SESSION_SECRET, QR_SIGNING_SECRET
-SSO_GOOGLE_CLIENT_ID, SSO_GOOGLE_CLIENT_SECRET
+ORG_EMAIL_DOMAIN                          # SSO users' email domain; required with SSO
+SSO_GOOGLE_CLIENT_ID, SSO_GOOGLE_CLIENT_SECRET          # one provider, required in production
 SSO_ENTRA_TENANT_ID, SSO_ENTRA_CLIENT_ID, SSO_ENTRA_CLIENT_SECRET
+SETUP_ORG_NAME, SETUP_SITE_NAME           # first run on an empty database only (ADR-014)
+INITIAL_ADMIN_EMAILS                      # comma-separated; admins on first sign-in
 ANTHROPIC_API_KEY, AI_MODEL_SMART, AI_MODEL_FAST
 SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
 VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY      # P1
-SENTRY_DSN
+SENTRY_DSN, APP_VERSION                   # optional; APP_VERSION = Sentry release
+LITESTREAM_REPLICA_URL, LITESTREAM_ACCESS_KEY_ID, LITESTREAM_SECRET_ACCESS_KEY   # optional
 DEFAULT_TIMEZONE=Asia/Kolkata
 DEV_LOGIN_ENABLED                         # dev/test only; server refuses to start if "true" in production
 LOG_LEVEL                                 # optional pino level

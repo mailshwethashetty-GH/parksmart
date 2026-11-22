@@ -2,6 +2,7 @@ export * from './client';
 export * as schema from './schema';
 export * from './schema';
 export { seed, isSeeded, SEED_EMAIL_DOMAIN } from './seed';
+export { setupOrganisation, type SetupOptions } from './setup';
 
 /**
  * Query helpers, re-exported so every package uses this one copy of drizzle-orm.

@@ -9,6 +9,7 @@ import { dispatchEmails } from '../services/notifications';
 import { afterJobs } from './after-jobs';
 import { notificationJobs } from './notification-jobs';
 import { roundJobs } from './round-jobs';
+import { reportError } from '../lib/monitoring';
 
 export function startScheduler(app: FastifyInstance): () => void {
   const jobs = [
@@ -20,6 +21,7 @@ export function startScheduler(app: FastifyInstance): () => void {
         afterJobs(app, events);
       } catch (err) {
         app.log.error({ err, job: 'rounds' }, 'job failed');
+        reportError(err, { job: 'rounds' });
       }
     }),
     // Reminders, warnings and email, every minute (FR-25).
@@ -34,6 +36,7 @@ export function startScheduler(app: FastifyInstance): () => void {
         if (sent.sent || sent.failed) app.log.info({ job: 'email', ...sent }, 'job ran');
       } catch (err) {
         app.log.error({ err, job: 'notifications' }, 'job failed');
+        reportError(err, { job: 'notifications' });
       }
     }),
     new Cron('*/15 * * * *', { name: 'recurring-expand', protect: true }, () => {
@@ -43,6 +46,7 @@ export function startScheduler(app: FastifyInstance): () => void {
         if (ran.length) app.log.info({ job: 'recurring-expand', results: ran }, 'job ran');
       } catch (err) {
         app.log.error({ err, job: 'recurring-expand' }, 'job failed');
+        reportError(err, { job: 'recurring-expand' });
       }
     }),
   ];

@@ -6,10 +6,11 @@ import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Approvals } from './approvals';
 import { BayBlocks } from './blocks';
+import { People } from './people';
 import { SettingsForm } from './settings-form';
 import { ZonesAndBays } from './zones-bays';
 
-const TABS = ['bays', 'blocks', 'approvals', 'settings'] as const;
+const TABS = ['bays', 'blocks', 'approvals', 'people', 'settings'] as const;
 type Tab = (typeof TABS)[number];
 
 /** /admin/site (FR-26, FR-13): zones, bays, blocks, approvals, settings. */
@@ -48,6 +49,7 @@ export function SitePage() {
         {tab === 'bays' && <ZonesAndBays />}
         {tab === 'blocks' && <BayBlocks />}
         {tab === 'approvals' && <Approvals />}
+        {tab === 'people' && <People />}
         {tab === 'settings' && site.data && <SettingsForm key={site.data.id} site={site.data} />}
       </div>
     </div>

@@ -76,7 +76,8 @@
       "bays": "Zones & bays",
       "blocks": "Blocks",
       "approvals": "Accessible approvals",
-      "settings": "Settings"
+      "settings": "Settings",
+      "people": "People"
     },
     "rounds": "Rounds",
     "roundsHint": "All times are in the site's time zone ({{tz}}). Changes apply to the next scheduled run.",
@@ -156,7 +157,15 @@
     "revoked": "Revoked",
     "expired": "Expired",
     "noApprovals": "No approvals yet.",
-    "sticker": "Sticker"
+    "sticker": "Sticker",
+    "people": "People and roles",
+    "peopleHint": "Everyone signs in with their work account as an employee. Make gate staff Security and backup admins Admin. Each change needs a reason and is logged.",
+    "searchPeople": "Search people",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "changeRole": "Change role",
+    "changeRoleFor": "Change role for {{name}}"
   },
   "policy": {
     "title": "Allocation policy",
@@ -513,5 +522,10 @@
     "checkedIn": "Checked in",
     "released": "Auto-released",
     "utilisation": "Utilisation"
+  },
+  "roles": {
+    "employee": "Employee",
+    "admin": "Admin",
+    "security": "Security"
   }
 }

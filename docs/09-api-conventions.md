@@ -27,7 +27,7 @@
 | 404 | Not found |
 | 409 | Conflict (e.g. bay already booked, round already published, cutoff passed) |
 | 422 | Business rule broken (e.g. rule coverage below 90%) |
-| 429 | Rate limited |
+| 429 | Rate limited (300 requests/min per signed-in session, or per IP when signed out: offices share one public IP; ADR-015) |
 
 ## Endpoint map (initial)
 
@@ -82,7 +82,8 @@
 | GET/POST · PATCH | `/admin/zones` · `/admin/zones/:id` | admin | FR-26 |
 | GET/POST · POST · PATCH | `/admin/bays?zoneId` · `/admin/bays/bulk` · `/admin/bays/:id` (deactivate, never delete) | admin | FR-26 |
 | GET/POST · DELETE | `/admin/bay-blocks?from&to` · `/admin/bay-blocks/:id` (soft delete) | admin | FR-26 |
-| GET | `/admin/users?q&role` | admin | pickers (approvals, backup admins) |
+| GET | `/admin/users?q&role` | admin | pickers (approvals, backup admins), People tab |
+| PATCH | `/admin/users/:id/role` `{ role, reason }` (not your own role; audited as `user.role`) | admin | FR-29 |
 | GET | `/admin/collation?from&days` (working days; per bay type: supply, same-day hold-back, requests, confirmed, waitlisted, oversubscription, forecast) | admin | FR-7 |
 | GET | `/admin/policy` (the site's one policy + version statuses) | admin | FR-12 |
 | GET · POST | `/admin/policy/versions/:v` · `/admin/policy/versions` (new draft, copies latest) | admin | FR-8, FR-12 |

@@ -14,7 +14,7 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 | M5 | Review, reasons, waitlist (FR-15, FR-16, FR-20) | Done (2026-11-22). Also booking cancellation (FR-4) and live updates over SSE |
 | M6 | Check-in (FR-21, FR-22) | Done (2026-11-22). Includes bay-sticker check-in and printable stickers (supports D4). The < 5 s on 4G check is in M8 |
 | M7 | Notifications, reports, privacy, employee profile (FR-25, FR-28 P0, DPDP) | Done (2026-11-22). Includes approval reminders (FR-16), consent gate, inbox bell, `/admin/analytics` |
-| M8 | Pilot hardening and deployment | Planned |
+| M8 | Pilot hardening and deployment | Done (2026-11-22) for everything in this repo: e2e + axe + performance checks, Docker/Caddy/Litestream, Sentry, CI jobs, runbooks, SSO from env, first-run setup, roles. Waiting on D2 (real IdP sign-in), real bay data (admin enters it) and D4 (stickers printed, staff briefed) |
 
 ## M0 — Foundations (FR-29)
 

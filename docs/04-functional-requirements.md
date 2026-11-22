@@ -55,7 +55,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-21 | QR check-in at gate or bay; manual check-in by security | Time and method recorded; under 5 s on a 4G phone | P0 | In progress |
+| FR-21 | QR check-in at gate or bay; manual check-in by security | Time and method recorded; under 5 s on a 4G phone | P0 | Done (e2e: about 0.9 s on throttled 4G with the PWA installed) |
 | FR-22 | Auto-release after a grace window | Default 15 min, configurable to 30; one "running late" extension per employee per week | P0 | Done |
 | FR-23 | No-show handling | Missed check-ins feed the no-show factor; any extra penalty is off by default (*hypothesis*) | P1 | Planned |
 
@@ -83,7 +83,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-29 | SSO and roles: Employee, Admin, Security | OIDC/SAML with Google Workspace or Microsoft Entra | P0 | In progress |
+| FR-29 | SSO and roles: Employee, Admin, Security | OIDC/SAML with Google Workspace or Microsoft Entra | P0 | In progress (Google/Entra OIDC configured from env, first admins and role changes in Site setup → People; sign-in against the real IdP waits for D2) |
 | FR-30 | One booking covers parking and building entry | P1: combined booking flow; P2: access-control API integration | P1 | Planned |
 
 ## Employee

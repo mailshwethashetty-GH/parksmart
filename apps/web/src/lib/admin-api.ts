@@ -16,6 +16,7 @@ import {
   policyResponseSchema,
   policyVersionDetailSchema,
   siteResponseSchema,
+  userSummarySchema,
   usersResponseSchema,
   zoneSchema,
   zonesResponseSchema,
@@ -133,6 +134,13 @@ export const useUsers = (q: string, role?: Role) =>
       return api.get(`/admin/users?${params}`, usersResponseSchema);
     },
   });
+
+export const useSetUserRole = () =>
+  useAdminMutation(
+    ({ id, ...body }: { id: string; role: Role; reason: string }) =>
+      api.patch(`/admin/users/${id}/role`, userSummarySchema, body),
+    [['admin', 'users']],
+  );
 
 export const useApprovals = () =>
   useQuery({

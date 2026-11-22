@@ -16,6 +16,22 @@ Record significant decisions with trade-offs here: anything someone might later 
 
 ---
 
+## ADR-015 — Rate limit per signed-in session, not per IP
+- Date: 2026-11-22
+- Status: Accepted
+- Context: The API allowed 300 requests a minute per IP. Office networks usually leave through one public IP, so at the 09:00 peak every employee would share one bucket and get 429s.
+- Decision: The bucket key is a SHA-256 of the session cookie when present, else the client IP (from Caddy's `X-Forwarded-For`). Better Auth's own sign-in limits read the same header in production.
+- Alternatives: Raise the per-IP limit (rejected: one abusive client could then flood the API); no limit (rejected).
+- Consequences: A signed-out flood is still limited per IP. Session tokens are never kept in the limiter, only their hashes.
+
+## ADR-014 — Identity provider and first admins from the environment
+- Date: 2026-11-22
+- Status: Accepted
+- Context: SSO is the only way in (non-negotiable #6), but only a signed-in admin could register an identity provider through the API, and new SSO users always became employees. A fresh production install therefore had no way for anyone to sign in or become admin. `db:seed` is sample data only.
+- Decision: One OIDC provider per deployment comes from env (`SSO_GOOGLE_*` or `SSO_ENTRA_*`, matched to `ORG_EMAIL_DOMAIN`) through Better Auth's `defaultSSO`, with only that IdP's origins trusted for discovery. Production refuses to start without it. `INITIAL_ADMIN_EMAILS` become admins on their first sign-in; others are employees until an admin changes their role (People tab, reason required, audited). On an empty database, `SETUP_ORG_NAME`/`SETUP_SITE_NAME` create the org, site and default policy once.
+- Alternatives: Pre-create admin users (rejected: relies on SSO account linking, which differs by IdP); a setup CLI in the image (rejected: more moving parts than env on first start); keep API registration only (rejected: chicken-and-egg).
+- Consequences: Changing provider means changing env and restarting. SAML and several providers per site stay possible through the plugin's API later. Real sign-in is verified when D2 lands.
+
 ## ADR-013 — AI rewrites reasons only behind a fact check, with the template as the source of truth
 - Date: 2026-11-22
 - Status: Accepted

@@ -134,6 +134,11 @@ export const userSummarySchema = z.object({
   role: z.enum(ROLES),
 });
 export const usersResponseSchema = listOf(userSummarySchema);
+/** Change someone's role (FR-29): security staff and backup admins sign in, then get a role. */
+export const userRoleUpdateSchema = z.object({
+  role: z.enum(ROLES),
+  reason: z.string().trim().min(3, 'Say why (at least 3 characters)').max(300),
+});
 export const usersQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   role: z.enum(ROLES).optional(),

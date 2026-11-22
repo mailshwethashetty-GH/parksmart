@@ -11,6 +11,7 @@
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @parksmart/web build && pnpm --filter @parksmart/e2e test",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

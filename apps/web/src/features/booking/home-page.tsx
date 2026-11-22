@@ -79,7 +79,7 @@ export function EmployeeHomePage() {
                     <span
                       className={
                         r.awaitingResults.delayed
-                          ? 'text-xs text-amber-700 dark:text-amber-300'
+                          ? 'text-xs text-amber-800 dark:text-amber-300'
                           : 'text-xs text-muted-foreground'
                       }
                     >

@@ -1,0 +1,10 @@
+# Caddy: automatic HTTPS (Let's Encrypt) in front of the app (docs/06).
+# DOMAIN comes from the environment, e.g. parking.example.com
+{$DOMAIN} {
+	encode zstd gzip
+	# Caddy sets X-Forwarded-For/-Proto and ignores those headers from untrusted
+	# clients, so the API (trustProxy) and Better Auth see the real client IP.
+	# Server-sent events (/api/v1/stream/me) are flushed straight through.
+	reverse_proxy app:3000
+	header -Server
+}

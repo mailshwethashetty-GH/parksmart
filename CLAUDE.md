@@ -25,6 +25,8 @@ Read the relevant doc **before** working on an area. Do not load every doc for e
 | `docs/11-raid.md` | Risks, assumptions, open issues, dependencies |
 | `docs/12-decision-log.md` | Why something is the way it is (ADRs) |
 | `docs/13-build-plan.md` | What to build next: milestones, order, exit criteria |
+| `docs/14-operations-runbook.md` | Deploying, monitoring, backups, restore, incidents |
+| `docs/15-gate-guide.md` | Security staff at the gate (plain language, printable) |
 | `docs/CHANGELOG.md` | What changed in the docs and when |
 
 ---
@@ -53,7 +55,7 @@ TypeScript (strict) · pnpm monorepo · React 19 + Vite PWA · Tailwind + shadcn
 pnpm install          # install all workspaces
 pnpm dev              # run web (:5173) + api (:3000) in watch mode; needs .env (copy .env.example, set secrets)
 pnpm test             # unit + engine property tests
-pnpm test:e2e         # Playwright (added in M8)
+pnpm test:e2e         # build web, then Playwright (e2e/: pilot week + axe + perf)
 pnpm lint && pnpm typecheck
 pnpm format           # prettier --write (CI runs format:check)
 pnpm build            # web (vite) + api (esbuild bundle)

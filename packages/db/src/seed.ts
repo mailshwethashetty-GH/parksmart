@@ -129,37 +129,7 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
     }
 
     const adminId = userIds.get('admin')!;
-    const policyId = createId();
-    const versionId = createId();
-    tx.insert(s.policies).values({ id: policyId, orgId, siteId, name: 'Default policy' }).run();
-    tx.insert(s.policyVersions)
-      .values({
-        id: versionId,
-        policyId,
-        version: 1,
-        effectiveFromWeek: weekStart(siteLocalDate(now, DEFAULT_TIMEZONE)),
-        publishedAt: now,
-        publishedBy: adminId,
-        plainLanguage: describePolicy(DEFAULT_RULE_CATALOGUE, {
-          version: 1,
-          effectiveFromWeek: weekStart(siteLocalDate(now, DEFAULT_TIMEZONE)),
-        }),
-      })
-      .run();
-    tx.insert(s.rules)
-      .values(
-        DEFAULT_RULE_CATALOGUE.map((r, order) => ({
-          policyVersionId: versionId,
-          ruleType: r.ruleType,
-          key: r.key,
-          label: r.label,
-          configJson: r.config,
-          weight: r.weight,
-          order,
-          enabled: r.enabled,
-        })),
-      )
-      .run();
+    insertDefaultPolicy(tx, { orgId, siteId, publishedBy: adminId, now });
 
     tx.insert(s.auditLog)
       .values({
@@ -176,4 +146,47 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
 
     return { orgId, siteId };
   });
+}
+
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/** The default policy (v1, published, in force from the current week) for a new site. */
+export function insertDefaultPolicy(
+  tx: Tx,
+  opts: { orgId: string; siteId: string; publishedBy: string | null; now: Date; timezone?: string },
+): string {
+  const { orgId, siteId, publishedBy, now } = opts;
+  const week = weekStart(siteLocalDate(now, opts.timezone ?? DEFAULT_TIMEZONE));
+  const policyId = createId();
+  const versionId = createId();
+  tx.insert(s.policies).values({ id: policyId, orgId, siteId, name: 'Default policy' }).run();
+  tx.insert(s.policyVersions)
+    .values({
+      id: versionId,
+      policyId,
+      version: 1,
+      effectiveFromWeek: week,
+      publishedAt: now,
+      publishedBy,
+      plainLanguage: describePolicy(DEFAULT_RULE_CATALOGUE, {
+        version: 1,
+        effectiveFromWeek: week,
+      }),
+    })
+    .run();
+  tx.insert(s.rules)
+    .values(
+      DEFAULT_RULE_CATALOGUE.map((r, order) => ({
+        policyVersionId: versionId,
+        ruleType: r.ruleType,
+        key: r.key,
+        label: r.label,
+        configJson: r.config,
+        weight: r.weight,
+        order,
+        enabled: r.enabled,
+      })),
+    )
+    .run();
+  return versionId;
 }

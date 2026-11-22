@@ -23,6 +23,7 @@
     "@parksmart/db": "workspace:*",
     "@parksmart/engine": "workspace:*",
     "@parksmart/shared": "workspace:*",
+    "@sentry/node": "^11.16.0",
     "better-auth": "^1.7.27",
     "better-sqlite3": "^13.2.0",
     "croner": "^11.0.1",

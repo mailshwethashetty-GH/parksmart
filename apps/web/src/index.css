@@ -83,4 +83,13 @@
     background: var(--color-background);
     color: var(--color-foreground);
   }
+  /* Respect the OS "reduce motion" setting (WCAG 2.3.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0s !important;
+      animation-duration: 0s !important;
+    }
+  }
 }
