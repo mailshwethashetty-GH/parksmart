@@ -10,3 +10,4 @@ export * from './policy-text';
 export * from './admin';
 export * from './deciding-round';
 export * from './requests';
+export * from './checkin';

@@ -2,6 +2,9 @@ import { homePathForRole } from '@parksmart/shared';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from '@/components/app-shell';
 import { AdminLayout } from '@/features/admin/admin-layout';
+import { BayCheckinPage } from '@/features/checkin/bay-checkin-page';
+import { BayStickerPage } from '@/features/checkin/bay-sticker';
+import { GatePage } from '@/features/checkin/gate-page';
 import { BookPage } from '@/features/booking/book-page';
 import { EmployeeHomePage } from '@/features/booking/home-page';
 import { RecurringPage } from '@/features/booking/recurring-page';
@@ -14,7 +17,7 @@ import { RoundsPage } from '@/features/rounds/rounds-page';
 import { SitePage } from '@/features/site/site-page';
 import { useMe } from '@/lib/auth';
 import { LoginPage } from './login';
-import { AdminHome, GateHome } from './placeholders';
+import { AdminHome } from './placeholders';
 import { RequireRole } from './require-role';
 
 function RootRedirect() {
@@ -37,6 +40,7 @@ export const router = createBrowserRouter([
           { path: 'book', element: <BookPage /> },
           { path: 'recurring', element: <RecurringPage /> },
           { path: 'policy', element: <CurrentPolicyPage /> },
+          { path: 'checkin', element: <BayCheckinPage /> },
         ],
       },
       {
@@ -53,6 +57,7 @@ export const router = createBrowserRouter([
               { path: 'rounds', element: <RoundsPage /> },
               { path: 'rounds/:id', element: <RoundReviewPage /> },
               { path: 'audit', element: <AuditPage /> },
+              { path: 'site/bays/:id/sticker', element: <BayStickerPage /> },
             ],
           },
         ],
@@ -60,7 +65,7 @@ export const router = createBrowserRouter([
       {
         path: '/gate',
         element: <RequireRole group="/gate" />,
-        children: [{ index: true, element: <GateHome /> }],
+        children: [{ index: true, element: <GatePage /> }],
       },
     ],
   },

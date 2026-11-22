@@ -56,7 +56,7 @@ export function templateReason(d: Decision, ctx: ReasonContext): string {
   switch (d.reasonCode) {
     case 'allocated':
       return ctx.roundType === 'same_day'
-        ? `A bay (${ctx.bayCode}) is free for ${day} and offered to you first. ${rank}${why}.`
+        ? `A bay (${ctx.bayCode}) became free for ${day} and was offered to you first. ${rank}${why}.`
         : `You have bay ${ctx.bayCode} on ${day}. ${rank}${why}.`;
     case 'allocated_fallback':
       return `No ${type} bay was left on ${day}, so you have car bay ${ctx.bayCode}. ${rank}${why}.`;

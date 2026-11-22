@@ -40,10 +40,13 @@ export function afterJobs(app: FastifyInstance, events: JobEvent[]): void {
     const user = userOfOffer(app.db, (e.detail as { offerId: string }).offerId);
     if (user) users.push(user);
   }
+  for (const e of events.filter((x) => x.job === 'auto-release')) {
+    users.push((e.detail as { userId: string }).userId);
+  }
   app.events.notifyUsers(users);
 
   // Only newly run rounds (not auto-published older ones) need reasons rewritten.
-  const ran = events.filter((e) => e.job !== 'round-deadlines' && e.job !== 'offer-expiry');
+  const ran = events.filter((e) => e.job.endsWith('-round'));
   for (const roundId of roundIdsOf(ran)) {
     void rewriteRoundReasons(app.db, app.ai, roundId)
       .then((summary) => {

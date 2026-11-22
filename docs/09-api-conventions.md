@@ -56,8 +56,8 @@
 | POST · DELETE | `/recurring-patterns/:id/skips` `{ date }` · `/recurring-patterns/:id/skips/:date` | employee, admin | FR-3 |
 | GET | `/bookings?from&to` | employee | |
 | POST | `/bookings/:id/cancel` `{ reason? }` (own, confirmed only; audited; freed today → same-day round at once) | employee, admin | FR-4 |
-| POST | `/bookings/:id/running-late` | employee | FR-22 |
-| GET | `/bookings/:id/qr` | employee | FR-21 |
+| POST | `/bookings/:id/running-late` (once a week, before the deadline; returns the new `checkInBy`) | employee, admin | FR-22 |
+| GET | `/bookings/:id/qr` (signed token valid only on the booking's day) · POST `/checkins/bay` `{ token }` (bay sticker) | employee, admin | FR-21 |
 | SSE | `/stream/me` (`event: requests` when your requests change; heartbeat every 25 s). Waitlist position is on `GET /requests` | employee, admin | FR-20 |
 | POST | `/offers/:id/accept` · `/offers/:id/decline` (decline re-offers the bay at once) | employee, admin | FR-20 |
 | POST | `/appeals` | employee | FR-31 |
@@ -67,9 +67,10 @@
 
 | Method | Path | Role | FR |
 | --- | --- | --- | --- |
-| POST | `/checkins/scan` | security | FR-21 |
-| POST | `/checkins/manual` | security | FR-21 |
-| GET | `/gate/today` | security | Gate view |
+| POST | `/checkins/scan` `{ token }` (repeat scans return `alreadyCheckedIn: true`) | security, admin | FR-21 |
+| POST | `/checkins/manual` `{ bookingId }` (today only) | security, admin | FR-21 |
+| GET | `/gate/today` (today's bookings with deadlines and check-in times; bay states) | security, admin | Gate view |
+| GET | `/admin/bays/:id/qr` (static token for the printable bay sticker) | admin | FR-21 |
 
 ### Admin
 

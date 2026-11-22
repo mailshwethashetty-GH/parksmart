@@ -245,7 +245,11 @@ describe('same-day rounds and offers (FR-6, FR-20)', () => {
       bayCode: expect.any(String),
     });
     const late = await clients[first]!.get('/requests');
-    expect(late.body.items.find((r: { date: string }) => r.date === '2026-12-01')).toBeUndefined();
+    // Still listed, so the employee can see the offer lapsed.
+    expect(late.body.items.find((r: { date: string }) => r.date === '2026-12-01')).toMatchObject({
+      status: 'expired',
+      offer: null,
+    });
   });
 
   it('declining passes the bay on at once', async () => {

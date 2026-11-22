@@ -4,7 +4,6 @@ import { Link } from 'react-router';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePolicy, useSite, useZones } from '@/lib/admin-api';
 
-/** Placeholder replaced in M6 (gate). */
 /** Admin overview: what is set up so far, with links to each area. */
 export function AdminHome() {
   const { t } = useTranslation();
@@ -41,17 +40,5 @@ export function AdminHome() {
         </Card>
       </Link>
     </div>
-  );
-}
-
-export function GateHome() {
-  const { t } = useTranslation();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('home.gateTitle')}</CardTitle>
-        <CardDescription>{t('home.gateBody')}</CardDescription>
-      </CardHeader>
-    </Card>
   );
 }

@@ -3,6 +3,9 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 03, 08 — Check-in deadline rule, running-late length (30 min, new setting), auto-release semantics (request expired, re-offer at once, day-end release), QR token rules — decided while building M6
+- 2026-11-22 — 06, 09, 10 — jose/qrcode.react/@zxing/browser; check-in, gate and bay-sticker endpoints and screens — built in M6
+- 2026-11-22 — 04, 13 — FR-22 Done; FR-21 In progress (4G timing check in M8); M6 Done
 - 2026-11-22 — 03, 12 — Reasons and overrides as built; ADR-013 AI rewrites behind a fact check — decided while building M5
 - 2026-11-22 — 06, 07 — Anthropic SDK settings, SSE live updates, single drizzle-orm copy via @parksmart/db re-exports (lint-enforced), after-jobs hook — built in M5
 - 2026-11-22 — 09, 10 — Review, approve, override, audit, cancel and stream endpoints; review and audit screens — built in M5

@@ -37,7 +37,7 @@ stateDiagram-v2
 
 | Screen | Route | User | Must show |
 | --- | --- | --- | --- |
-| Home | `/app` | Employee | Upcoming requests with status and the round that decides each (or "results by …" / "results delayed" while in review), waitlist position, same-day offer card with countdown and accept/decline, change/withdraw, links to book and weekly pattern. Today's QR code arrives in M6 |
+| Home | `/app` | Employee | Upcoming requests with status and the round that decides each (or "results by …" / "results delayed" while in review), waitlist position, same-day offer card with countdown and accept/decline, change/withdraw, links to book and weekly pattern. Confirmed bookings show bay and zone, the check-in deadline, today's QR code, "Running late", cancel; then "Checked in" or "Released" |
 | Book | `/app/book` | Employee | 4-week day grid (closed days greyed), bay types the employee may request, "EV/accessible bay only", arrival window, optional reason, block notices, which round decides each selected day. Chat box for NL booking is P1 (FR-2) |
 | Weekly pattern | `/app/recurring` | Employee | Weekday pattern, upcoming covered days with skip/undo, stop pattern |
 | Booking detail | `/app/bookings/:id` | Employee | Not a separate page yet: bay and zone, reason and cancel are on the home list. Running late (M6) and appeal (P1) to come |
@@ -50,7 +50,9 @@ stateDiagram-v2
 | Site setup | `/admin/site` | Admin | Tabs: zones & bays (bulk add, deactivate), blocks (bays or a whole zone, with a reason), accessible approvals (flag + end date only), settings (rounds, deadlines, pool, grace, backup admins). User import is P1 |
 | Analytics | `/admin/analytics` | Admin | Utilisation, no-shows, fairness spread, forecast, export |
 | Audit | `/admin/audit` | Admin | Filter by action prefix and dates, load more, CSV export |
-| Gate view | `/gate` | Security | Today's bookings by bay, QR scanner, manual check-in, bay map |
+| Gate view | `/gate` | Security | Camera scanner + field for handheld scanners, result banner (name, bay, zone), checked-in/expected counts, bay map by state, today's bookings with search and manual check-in |
+| Bay check-in | `/app/checkin?bay=…` | Employee | Opened by scanning a bay sticker; checks in and confirms the bay, or says which bay is theirs |
+| Bay sticker | `/admin/site/bays/:id/sticker` | Admin | Printable QR sticker per bay ("Sticker" in the bays table) |
 
 ## UX principles
 

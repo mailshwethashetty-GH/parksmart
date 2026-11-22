@@ -22,6 +22,7 @@ import {
   type IsoDate,
   type SiteSettings,
 } from '@parksmart/shared';
+import { autoRelease } from '../services/checkin';
 import { expireOffers } from '../services/offers';
 import { pendingRoundsCovering, publishRound, runRound } from '../services/rounds';
 import { runOnce } from './runner';
@@ -180,6 +181,11 @@ export function roundJobs(db: Db, now: Date): JobEvent[] {
     weekly(db, site, now, events);
     daily(db, site, now, events);
     sameDay(db, site, now, events);
+  }
+  // FR-22: release unclaimed bays, then offer them straight away (same-day pool).
+  for (const r of autoRelease(db, now)) {
+    events.push({ job: 'auto-release', siteId: r.siteId, detail: r });
+    events.push(...sameDayNow(db, r.siteId, r.date, `after-release:${r.bookingId}`, now));
   }
   for (const freed of expireOffers(db, now)) {
     events.push({ job: 'offer-expiry', siteId: freed.siteId, detail: freed });

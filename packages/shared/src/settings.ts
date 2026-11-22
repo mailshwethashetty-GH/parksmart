@@ -39,6 +39,8 @@ export const siteSettingsSchema = z.object({
   offerWindowMinutes: z.number().int().min(5).max(60).default(10),
   graceMinutes: z.number().int().min(5).max(30).default(15),
   lateExtensionsPerWeek: z.number().int().min(0).max(5).default(1),
+  /** Minutes a "running late" extension adds to the check-in deadline. */
+  lateExtensionMinutes: z.number().int().min(5).max(120).default(30),
   notificationDailyCap: z.number().int().min(1).max(10).default(3),
   quietHours: z
     .object({

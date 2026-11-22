@@ -36,8 +36,6 @@
   },
   "home": {
     "employeeTitle": "My parking",
-    "gateTitle": "Gate view",
-    "gateBody": "QR scanning and manual check-in arrive in M6.",
     "siteSummary": "{{zones}} zones · {{bays}} active bays",
     "policyActive": "Version {{v}} in force",
     "noPolicy": "No policy in force",
@@ -154,7 +152,8 @@
     "revoke": "Revoke",
     "revoked": "Revoked",
     "expired": "Expired",
-    "noApprovals": "No approvals yet."
+    "noApprovals": "No approvals yet.",
+    "sticker": "Sticker"
   },
   "policy": {
     "title": "Allocation policy",
@@ -359,5 +358,63 @@
     "reason": "Reason",
     "system": "System",
     "more": "Load more"
+  },
+  "checkin": {
+    "checkedIn": "Checked in {{time}}",
+    "autoReleased": "Released: nobody checked in by the deadline, so the bay went to someone else.",
+    "checkInBy": "Check in by {{time}}, or the bay is released",
+    "showQr": "Show QR code",
+    "hideQr": "Hide QR code",
+    "runningLate": "Running late (+30 min)",
+    "qrTitle": "Your check-in code for today",
+    "qrHint": "Show this at the gate. Bay {{bay}}. Valid today only.",
+    "bayTitle": "Bay check-in",
+    "noToken": "This link is missing its bay code. Scan the sticker again.",
+    "checking": "Checking you in…",
+    "done": "You're checked in.",
+    "already": "You were already checked in.",
+    "bayLine": "Bay {{bay}}, {{zone}}.",
+    "back": "Back to my parking"
+  },
+  "gate": {
+    "title": "Gate",
+    "summary": "{{checkedIn}} checked in · {{expected}} still expected",
+    "scan": "Check in",
+    "scanHint": "Scan the employee's QR code with the camera, or with a handheld scanner into the box below.",
+    "tokenLabel": "Scanned code",
+    "checkIn": "Check in",
+    "already": "already checked in",
+    "ok": "checked in",
+    "map": "Bays today",
+    "mapHint": "Free · booked (amber) · checked in (green) · blocked (grey)",
+    "state": {
+      "free": "free",
+      "booked": "booked",
+      "checked_in": "checked in",
+      "blocked": "blocked"
+    },
+    "today": "Today's bookings",
+    "search": "Search name or bay",
+    "bay": "Bay",
+    "employee": "Employee",
+    "status": "Status",
+    "time": "Time",
+    "statuses": {
+      "confirmed": "Expected",
+      "checked_in": "Checked in",
+      "auto_released": "Released (no-show)",
+      "released": "Left",
+      "cancelled": "Cancelled"
+    },
+    "by": "by {{time}}",
+    "manual": "Check in manually",
+    "cameraOn": "Use camera",
+    "cameraOff": "Stop camera",
+    "cameraError": "Camera unavailable ({{error}}). Use a handheld scanner or type the code."
+  },
+  "sticker": {
+    "back": "Back to site setup",
+    "print": "Print",
+    "caption": "Scan with your phone camera when you park here to check in."
   }
 }

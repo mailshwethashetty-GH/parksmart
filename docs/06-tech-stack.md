@@ -26,7 +26,7 @@
 | UI | Tailwind CSS v4 + shadcn/ui (Radix; `clsx`, `tailwind-merge`, `class-variance-authority`) |
 | Forms / validation | React Hook Form + `@hookform/resolvers` (Zod 4) with schemas from `packages/shared` |
 | Dates | `react-day-picker`, `date-fns`, `date-fns-tz` |
-| QR | `qrcode.react` (display), `@zxing/browser` (gate scanner) |
+| QR | `qrcode.react` 4 (display: employee QR, bay stickers), `@zxing/browser` (camera scanner on `/gate`, loaded on demand; handheld scanners type into the field instead) |
 | Charts | Recharts |
 | Live updates | Server-Sent Events: `GET /api/v1/stream/me` sends "your requests changed" (no data); the app refetches. In-process event bus (one instance). 30 s polling stays as a fallback |
 | Text strings | `react-i18next` + `i18next` (English at launch, `src/locales/en.json`) |
@@ -39,7 +39,7 @@
 | Auth | Better Auth + `@better-auth/sso` (OIDC/SAML for Google Workspace, Microsoft Entra), Drizzle/SQLite adapter, httpOnly cookie sessions (`parksmart.` prefix), mounted at `/api/v1/auth`. Only admins may register an identity provider. Dev-only login is a small Better Auth plugin registered only outside production |
 | Roles | Middleware: `employee`, `admin`, `security`, scoped by site |
 | Security | `@fastify/helmet` (strict CSP in production), `@fastify/rate-limit` (300/min/IP), `@fastify/cookie` + `@fastify/csrf-protection` (signed cookie + `x-csrf-token` header), same-origin (no CORS plugin needed) |
-| QR tokens | `jose`: signed, daily-rotating tokens (booking + date) |
+| QR tokens | `jose` 6, HS256 with `QR_SIGNING_SECRET`: booking tokens valid only on the booking's site-local day (`nbf`/`exp`); static bay-sticker tokens |
 | Scheduler | `croner` (time-zone aware). Every run written to `job_runs` with a unique key (idempotent) |
 | Notifications | In-app table; email via Nodemailer (SMTP) or Amazon SES Mumbai; Web Push (`web-push`, VAPID) at P1 |
 | Import / export | `papaparse` (CSV import), `exceljs` / CSV (report export) |
@@ -55,7 +55,7 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 | `weekly-round` | Fri 12:00 (checked every minute; once per target week) | Allocate next Mon–Fri |
 | `daily-round` | 18:00 on each working day (waits while an earlier round for that day is pending) | Allocate the next working day's changes and waitlist (Friday covers Monday) |
 | `same-day-round` | Every 30 min, 07:00–17:00 (same waiting rule); also straight after an offer is declined or expires | Pool, waitlist, released no-shows → 10-min offers |
-| `auto-release` | Every minute | Release bays past grace window |
+| `auto-release` | Every minute (in the round tick, before same-day rounds) | Release bays past the check-in deadline and re-offer them at once; release checked-in bookings when the day ends |
 | `offer-expiry` | Every minute | Expire 10-min offers, re-offer the bay at once |
 | `round-deadlines` | Every minute | Day-start auto-publish of unapproved rounds (built in M4); approval reminders arrive with notifications (M7). "Results delayed" is shown from round data |
 | `recurring-expand` | Every 15 min (idempotent per site and week) | Create requests from recurring patterns for the next weekly round's target week |

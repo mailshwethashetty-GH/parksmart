@@ -38,7 +38,18 @@ export const requestSchema = z.object({
   /** Plain-language reason from the latest published decision (FR-15). */
   reason: z.string().nullable(),
   /** The confirmed bay, once allocated. */
-  booking: z.object({ id: z.string(), bayCode: z.string(), zoneName: z.string() }).nullable(),
+  booking: z
+    .object({
+      id: z.string(),
+      bayCode: z.string(),
+      zoneName: z.string(),
+      status: z.enum(['confirmed', 'checked_in', 'released', 'auto_released', 'cancelled']),
+      /** Auto-released if not checked in by then (FR-22). */
+      checkInBy: isoDateTime.nullable(),
+      checkedInAt: isoDateTime.nullable(),
+      lateExtensionUsed: z.boolean(),
+    })
+    .nullable(),
 });
 export type EmployeeRequest = z.infer<typeof requestSchema>;
 export const requestsResponseSchema = z.object({ items: z.array(requestSchema) });
@@ -128,3 +139,53 @@ export const skipParamsSchema = z.object({ id: z.string().min(1), date: isoDateS
 
 export const offerAcceptResponseSchema = z.object({ bookingId: z.string() });
 export const bookingCancelSchema = z.object({ reason: z.string().trim().max(300).optional() });
+
+// --- check-in (M6, FR-21/22) ---------------------------------------------------------
+export const qrResponseSchema = z.object({
+  /** Signed, valid only on the booking's date. */
+  token: z.string(),
+  date: isoDateSchema,
+  expiresAt: isoDateTime,
+});
+export const runningLateResponseSchema = z.object({ checkInBy: isoDateTime });
+export const checkinTokenSchema = z.object({ token: z.string().min(10).max(2000) });
+export const manualCheckinSchema = z.object({ bookingId: z.string().min(1) });
+export const checkinResultSchema = z.object({
+  alreadyCheckedIn: z.boolean(),
+  booking: z.object({
+    id: z.string(),
+    date: isoDateSchema,
+    bayCode: z.string(),
+    zoneName: z.string(),
+    employeeName: z.string(),
+    checkedInAt: isoDateTime,
+  }),
+});
+export type CheckinResult = z.infer<typeof checkinResultSchema>;
+export const gateBookingSchema = z.object({
+  id: z.string(),
+  employeeName: z.string(),
+  bayCode: z.string(),
+  bayType: z.enum(BAY_TYPES),
+  zoneName: z.string(),
+  status: z.enum(['confirmed', 'checked_in', 'released', 'auto_released', 'cancelled']),
+  checkInBy: isoDateTime.nullable(),
+  checkedInAt: isoDateTime.nullable(),
+  method: z.enum(['qr_employee', 'qr_bay', 'manual_security']).nullable(),
+});
+export type GateBooking = z.infer<typeof gateBookingSchema>;
+export const gateTodayResponseSchema = z.object({
+  date: isoDateSchema,
+  bookings: z.array(gateBookingSchema),
+  bays: z.array(
+    z.object({
+      id: z.string(),
+      code: z.string(),
+      bayType: z.enum(BAY_TYPES),
+      zoneName: z.string(),
+      state: z.enum(['free', 'booked', 'checked_in', 'blocked']),
+    }),
+  ),
+});
+export type GateTodayResponse = z.infer<typeof gateTodayResponseSchema>;
+export const bayQrResponseSchema = z.object({ token: z.string(), bayCode: z.string() });

@@ -55,8 +55,8 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-21 | QR check-in at gate or bay; manual check-in by security | Time and method recorded; under 5 s on a 4G phone | P0 | Planned |
-| FR-22 | Auto-release after a grace window | Default 15 min, configurable to 30; one "running late" extension per employee per week | P0 | Planned |
+| FR-21 | QR check-in at gate or bay; manual check-in by security | Time and method recorded; under 5 s on a 4G phone | P0 | In progress |
+| FR-22 | Auto-release after a grace window | Default 15 min, configurable to 30; one "running late" extension per employee per week | P0 | Done |
 | FR-23 | No-show handling | Missed check-ins feed the no-show factor; any extra penalty is off by default (*hypothesis*) | P1 | Planned |
 
 ## EV

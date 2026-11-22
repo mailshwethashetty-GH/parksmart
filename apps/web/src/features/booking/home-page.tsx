@@ -9,6 +9,7 @@ import { errorMessage } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 import { useCancelBooking, useRequests, useWithdrawRequest } from '@/lib/request-api';
 import { decidedByText, STATUS_VARIANT } from './labels';
+import { BookingCheckin } from '@/features/checkin/booking-checkin';
 import { OfferCard } from './offer-card';
 
 /** /app: upcoming requests with status and who decides them; change or withdraw (FR-4). */
@@ -101,6 +102,7 @@ export function EmployeeHomePage() {
                       {t('booking.yourBay', { bay: r.booking.bayCode, zone: r.booking.zoneName })}
                     </span>
                   )}
+                  {r.booking && <BookingCheckin booking={r.booking} date={r.date} timeZone={tz} />}
                   {r.reason && (
                     <span className="max-w-prose text-sm text-muted-foreground">{r.reason}</span>
                   )}
@@ -112,7 +114,7 @@ export function EmployeeHomePage() {
                       <Link to={`/app/book?date=${r.date}`}>{t('booking.change')}</Link>
                     </Button>
                   )}
-                  {r.booking && (
+                  {r.booking?.status === 'confirmed' && (
                     <Button
                       size="sm"
                       variant="ghost"

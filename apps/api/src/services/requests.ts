@@ -12,6 +12,7 @@ import {
   bayBlocks,
   bays,
   bookings,
+  checkins,
   type Db,
   eq,
   gte,
@@ -28,7 +29,6 @@ import {
 } from '@parksmart/db';
 import {
   ACTIVE_REQUEST_STATUSES,
-  BAY_HOLDING_BOOKING_STATUSES,
   addDays,
   decidingRound,
   siteLocalDate,
@@ -41,6 +41,7 @@ import {
 } from '@parksmart/shared';
 import { businessRule, conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
+import { deadlineFor } from './checkin';
 import { loadSite } from './site';
 
 type Site = ReturnType<typeof loadSite>;
@@ -68,7 +69,7 @@ export type RequestContext = {
   positions: Map<string, number>;
   reasons: Map<string, string>;
   /** Bay-holding bookings keyed by `${userId}|${date}`. */
-  bookings: Map<string, { id: string; bayCode: string; zoneName: string }>;
+  bookings: Map<string, NonNullable<EmployeeRequest['booking']>>;
 };
 const EMPTY_CONTEXT: RequestContext = {
   review: new Map(),
@@ -128,6 +129,7 @@ function latestReasons(db: Db, ids: string[]): Map<string, string> {
   return out;
 }
 
+/** Each request's booking (a bay-holding one first, else the latest), with check-in state. */
 function heldBookings(db: Db, ids: string[]) {
   const reqs = db
     .select({ userId: requests.userId, date: requests.date })
@@ -136,24 +138,44 @@ function heldBookings(db: Db, ids: string[]) {
     .all();
   if (reqs.length === 0) return new Map();
   const rows = db
-    .select({ booking: bookings, bayCode: bays.code, zoneName: zones.name })
+    .select({
+      booking: bookings,
+      bayCode: bays.code,
+      zoneName: zones.name,
+      checkedInAt: checkins.at,
+    })
     .from(bookings)
     .innerJoin(bays, eq(bays.id, bookings.bayId))
     .innerJoin(zones, eq(zones.id, bays.zoneId))
+    .leftJoin(checkins, eq(checkins.bookingId, bookings.id))
     .where(
       and(
         inArray(bookings.userId, [...new Set(reqs.map((r) => r.userId))]),
         inArray(bookings.date, [...new Set(reqs.map((r) => r.date))]),
-        inArray(bookings.status, [...BAY_HOLDING_BOOKING_STATUSES]),
+        inArray(bookings.status, ['confirmed', 'checked_in', 'auto_released', 'released']),
       ),
     )
     .all();
-  return new Map(
-    rows.map((r) => [
-      `${r.booking.userId}|${r.booking.date}`,
-      { id: r.booking.id, bayCode: r.bayCode, zoneName: r.zoneName },
-    ]),
+  const holding = (s: string) => s === 'confirmed' || s === 'checked_in';
+  rows.sort(
+    (a, b) =>
+      Number(holding(a.booking.status)) - Number(holding(b.booking.status)) ||
+      a.booking.createdAt.getTime() - b.booking.createdAt.getTime(),
   );
+  const out = new Map<string, NonNullable<EmployeeRequest['booking']>>();
+  for (const r of rows) {
+    // Later entries win: the holding booking, else the most recent.
+    out.set(`${r.booking.userId}|${r.booking.date}`, {
+      id: r.booking.id,
+      bayCode: r.bayCode,
+      zoneName: r.zoneName,
+      status: r.booking.status,
+      checkInBy: r.booking.status === 'confirmed' ? deadlineFor(db, r.booking).toISOString() : null,
+      checkedInAt: r.checkedInAt?.toISOString() ?? null,
+      lateExtensionUsed: r.booking.lateExtensionUsed,
+    });
+  }
+  return out;
 }
 
 export function toEmployeeRequest(
@@ -189,8 +211,11 @@ export function toEmployeeRequest(
       : null,
     waitlistPosition: row.status === 'waitlisted' ? (ctx.positions.get(row.id) ?? null) : null,
     reason: ctx.reasons.get(row.id) ?? null,
+    // Expired requests keep their booking so people can see it was auto-released.
     booking:
-      row.status === 'allocated' ? (ctx.bookings.get(`${row.userId}|${row.date}`) ?? null) : null,
+      row.status === 'allocated' || row.status === 'expired'
+        ? (ctx.bookings.get(`${row.userId}|${row.date}`) ?? null)
+        : null,
   };
 }
 
@@ -276,6 +301,12 @@ export function typeProblem(
 // --- queries -----------------------------------------------------------------
 const ownActive = (userId: string) =>
   and(eq(requests.userId, userId), inArray(requests.status, [...ACTIVE_REQUEST_STATUSES]));
+/** What the employee's list shows: active requests, plus expired ones (missed offer, auto-released). */
+const ownVisible = (userId: string) =>
+  and(
+    eq(requests.userId, userId),
+    inArray(requests.status, [...ACTIVE_REQUEST_STATUSES, 'expired']),
+  );
 
 export function listRequests(
   db: Db,
@@ -290,7 +321,7 @@ export function listRequests(
   const rows = db
     .select()
     .from(requests)
-    .where(and(ownActive(actor.id), gte(requests.date, start), lte(requests.date, end)))
+    .where(and(ownVisible(actor.id), gte(requests.date, start), lte(requests.date, end)))
     .orderBy(asc(requests.date))
     .all();
   const ctx = requestContext(

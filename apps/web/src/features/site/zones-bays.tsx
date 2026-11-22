@@ -1,6 +1,7 @@
 import { BAY_TYPES, ZONE_KINDS, type BayType, type ZoneKind } from '@parksmart/shared';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { Field } from '@/components/field';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -221,6 +222,9 @@ export function ZonesAndBays() {
                     </Badge>
                   </Td>
                   <Td className="text-right">
+                    <Button asChild size="sm" variant="ghost">
+                      <Link to={`/admin/site/bays/${b.id}/sticker`}>{t('site.sticker')}</Link>
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"

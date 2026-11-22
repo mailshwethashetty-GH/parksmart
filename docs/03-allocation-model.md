@@ -210,6 +210,14 @@ Rules at every stage:
 - Scoring is deterministic and replayable.
 - Every decision is logged with its score breakdown, and the admin can override any of them.
 
+### Check-in and auto-release (as built, M6)
+
+- **Check-in (FR-21)** three ways: security scans the employee's QR at the gate (`qr_employee`); the employee scans the sticker on their bay (`qr_bay`); or security checks them in by hand (`manual_security`). Time and method are recorded. Scanning twice is harmless ("already checked in").
+- **QR codes:** the booking QR is a signed token valid only on the booking's site-local day, so it changes daily and a screenshot can't be reused. Bay stickers carry a static signed token for that bay; scanning the wrong bay tells the employee which bay is theirs.
+- **Deadline (FR-22):** a confirmed bay is released if nobody checks in by `max(end of the arrival window, time booked) + grace` (default 15 min; "after 13:00" counts as ending 15:00). Example: "before 9" → 09:15; a same-day offer accepted at 09:20 → 09:35.
+- **Running late:** once per employee per week (site setting), before the deadline, adds 30 min (`lateExtensionMinutes`).
+- **Auto-release:** the booking becomes `auto_released`, the request `expired` (so the employee sees what happened and can request again), it is audited, and the bay is offered at once to the waitlist (same-day round). Missed check-ins feed the no-show factor. Checked-in bookings from earlier days are released when the day ends (audited).
+
 ### Reasons and overrides (as built, M5)
 
 - **Reasons (FR-15):** every decision gets a deterministic template reason at run time (under 40 words: outcome, bay or why not, rank, the two factors that counted most). It never states a waitlist number, which changes; the live position is shown separately. At AI stage ≥ 1 the AI may rewrite it. A rewrite is used only if it is under 40 words and keeps every bay code and number from the template; otherwise, on a refusal, error or missing key, the template stays. Reasons that could hint at a sensitive need (accessible-approval refusals) are never sent. The AI receives pseudonymous facts only (no names, ids, emails or reason category) and every call is logged in `ai_logs` (ADR-013).
