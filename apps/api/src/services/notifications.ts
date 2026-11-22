@@ -50,10 +50,10 @@ const TIME_CRITICAL: Record<NotificationKind, boolean> = {
 
 type Tx = Pick<Db, 'insert'>;
 
-export function queueNotification(
+export async function queueNotification(
   tx: Tx,
   n: { userId: string; kind: NotificationKind; payload: Record<string, unknown>; now: Date },
-): void {
+): Promise<void> {
   const base = {
     userId: n.userId,
     kind: n.kind,
@@ -61,7 +61,8 @@ export function queueNotification(
     payloadJson: n.payload,
     createdAt: n.now,
   };
-  tx.insert(notifications)
+  await tx
+    .insert(notifications)
     .values([
       { ...base, channel: 'in_app', sentAt: n.now },
       { ...base, channel: 'email' }, // pending until the job sends it
@@ -125,25 +126,27 @@ export function renderNotification(
 }
 
 // --- inbox ---------------------------------------------------------------------------
-export function listInbox(db: Db, userId: string, timeZone: string, limit = 30) {
-  const rows = db
+export async function listInbox(db: Db, userId: string, timeZone: string, limit = 30) {
+  const rows = await db
     .select()
     .from(notifications)
     .where(and(eq(notifications.userId, userId), eq(notifications.channel, 'in_app')))
     .orderBy(desc(notifications.createdAt))
     .limit(limit)
     .all();
-  const unread = db
-    .select({ id: notifications.id })
-    .from(notifications)
-    .where(
-      and(
-        eq(notifications.userId, userId),
-        eq(notifications.channel, 'in_app'),
-        isNull(notifications.readAt),
-      ),
-    )
-    .all().length;
+  const unread = (
+    await db
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.channel, 'in_app'),
+          isNull(notifications.readAt),
+        ),
+      )
+      .all()
+  ).length;
   return {
     unread,
     items: rows.map((r) => ({
@@ -156,8 +159,14 @@ export function listInbox(db: Db, userId: string, timeZone: string, limit = 30) 
   };
 }
 
-export function markRead(db: Db, userId: string, ids: string[] | 'all', now: Date): void {
-  db.update(notifications)
+export async function markRead(
+  db: Db,
+  userId: string,
+  ids: string[] | 'all',
+  now: Date,
+): Promise<void> {
+  await db
+    .update(notifications)
     .set({ readAt: now })
     .where(
       and(
@@ -184,7 +193,7 @@ export type DispatchResult = { sent: number; held: number; skipped: number; fail
 
 export async function dispatchEmails(db: Db, mailer: Mailer, now: Date): Promise<DispatchResult> {
   const result: DispatchResult = { sent: 0, held: 0, skipped: 0, failed: 0 };
-  const pending = db
+  const pending = await db
     .select({ n: notifications, email: users.email, active: users.active, siteId: users.siteId })
     .from(notifications)
     .innerJoin(users, eq(users.id, notifications.userId))
@@ -198,31 +207,26 @@ export async function dispatchEmails(db: Db, mailer: Mailer, now: Date): Promise
     .orderBy(notifications.createdAt)
     .limit(500)
     .all();
-  const siteRows = new Map(
-    db
-      .select()
-      .from(sites)
-      .all()
-      .map((x) => [x.id, x]),
-  );
+  const siteRows = new Map((await db.select().from(sites).all()).map((x) => [x.id, x]));
 
   for (const { n, email, active, siteId } of pending) {
     const site = siteRows.get(siteId)!;
     const settings = parseSiteSettings(site.settingsJson);
-    const skip = (reason: string) => {
-      db.update(notifications)
+    const skip = async (reason: string) => {
+      await db
+        .update(notifications)
         .set({ skippedReason: reason })
         .where(eq(notifications.id, n.id))
         .run();
       result.skipped++;
     };
     if (!active || email.endsWith('.invalid')) {
-      skip('no_email');
+      await skip('no_email');
       continue;
     }
     // Stale reminders aren't worth sending (e.g. an offer that has already expired).
     if (n.timeCritical && now.getTime() - n.createdAt.getTime() > 30 * 60_000) {
-      skip('stale');
+      await skip('stale');
       continue;
     }
     if (!n.timeCritical) {
@@ -231,24 +235,30 @@ export async function dispatchEmails(db: Db, mailer: Mailer, now: Date): Promise
         continue; // sent once quiet hours end
       }
       const dayStart = siteLocalToUtc(siteLocalDate(now, site.timezone), '00:00', site.timezone);
-      const sentToday = db
-        .select({ id: notifications.id })
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.userId, n.userId),
-            eq(notifications.channel, 'email'),
-            eq(notifications.timeCritical, false),
-            gte(notifications.sentAt, dayStart),
-            lt(
-              notifications.sentAt,
-              siteLocalToUtc(addDays(siteLocalDate(now, site.timezone), 1), '00:00', site.timezone),
+      const sentToday = (
+        await db
+          .select({ id: notifications.id })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, n.userId),
+              eq(notifications.channel, 'email'),
+              eq(notifications.timeCritical, false),
+              gte(notifications.sentAt, dayStart),
+              lt(
+                notifications.sentAt,
+                siteLocalToUtc(
+                  addDays(siteLocalDate(now, site.timezone), 1),
+                  '00:00',
+                  site.timezone,
+                ),
+              ),
             ),
-          ),
-        )
-        .all().length;
+          )
+          .all()
+      ).length;
       if (sentToday >= settings.notificationDailyCap) {
-        skip('daily_cap'); // still in the in-app inbox
+        await skip('daily_cap'); // still in the in-app inbox
         continue;
       }
     }
@@ -259,7 +269,7 @@ export async function dispatchEmails(db: Db, mailer: Mailer, now: Date): Promise
         subject: `ParkSmart: ${title}`,
         text: `${body}\n\nOpen ParkSmart to see the details.`,
       });
-      db.update(notifications).set({ sentAt: now }).where(eq(notifications.id, n.id)).run();
+      await db.update(notifications).set({ sentAt: now }).where(eq(notifications.id, n.id)).run();
       result.sent++;
     } catch {
       result.failed++; // left pending; retried next run

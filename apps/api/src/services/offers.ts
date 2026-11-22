@@ -8,8 +8,8 @@ import { conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { writeAudit } from './audit';
 
-function ownOffer(db: Db, actor: Actor, offerId: string) {
-  const row = db
+async function ownOffer(db: Db, actor: Actor, offerId: string) {
+  const row = await db
     .select({ offer: offers, request: requests })
     .from(offers)
     .innerJoin(requests, eq(requests.id, offers.requestId))
@@ -20,18 +20,18 @@ function ownOffer(db: Db, actor: Actor, offerId: string) {
   return row;
 }
 
-export function acceptOffer(
+export async function acceptOffer(
   db: Db,
   actor: Actor,
   offerId: string,
   now: Date,
-): { bookingId: string } {
-  return db.transaction(
-    (tx) => {
-      const { offer, request } = ownOffer(tx as unknown as Db, actor, offerId);
+): Promise<{ bookingId: string }> {
+  return await db.transaction(
+    async (tx) => {
+      const { offer, request } = await ownOffer(tx as unknown as Db, actor, offerId);
       if (offer.status !== 'open') throw conflict('This offer is no longer open.');
       if (offer.expiresAt.getTime() <= now.getTime()) throw conflict('This offer has expired.');
-      const booking = tx
+      const booking = await tx
         .insert(bookings)
         .values({
           orgId: request.orgId,
@@ -44,10 +44,14 @@ export function acceptOffer(
         })
         .returning({ id: bookings.id })
         .get(); // UNIQUE(bay_id, date) on held bookings guards against over-booking.
-      tx.update(offers).set({ status: 'accepted' }).where(eq(offers.id, offer.id)).run();
-      tx.update(requests).set({ status: 'allocated' }).where(eq(requests.id, request.id)).run();
-      tx.delete(waitlist).where(eq(waitlist.requestId, request.id)).run();
-      writeAudit(
+      await tx.update(offers).set({ status: 'accepted' }).where(eq(offers.id, offer.id)).run();
+      await tx
+        .update(requests)
+        .set({ status: 'allocated' })
+        .where(eq(requests.id, request.id))
+        .run();
+      await tx.delete(waitlist).where(eq(waitlist.requestId, request.id)).run();
+      await writeAudit(
         tx,
         {
           siteId: request.siteId,
@@ -66,14 +70,14 @@ export function acceptOffer(
 }
 
 /** Decline: the request is withdrawn. Returns the site and date so the caller can re-offer. */
-export function declineOffer(db: Db, actor: Actor, offerId: string, now: Date) {
-  return db.transaction((tx) => {
-    const { offer, request } = ownOffer(tx as unknown as Db, actor, offerId);
+export async function declineOffer(db: Db, actor: Actor, offerId: string, now: Date) {
+  return await db.transaction(async (tx) => {
+    const { offer, request } = await ownOffer(tx as unknown as Db, actor, offerId);
     if (offer.status !== 'open') throw conflict('This offer is no longer open.');
-    tx.update(offers).set({ status: 'declined' }).where(eq(offers.id, offer.id)).run();
-    tx.update(requests).set({ status: 'withdrawn' }).where(eq(requests.id, request.id)).run();
-    tx.delete(waitlist).where(eq(waitlist.requestId, request.id)).run();
-    writeAudit(
+    await tx.update(offers).set({ status: 'declined' }).where(eq(offers.id, offer.id)).run();
+    await tx.update(requests).set({ status: 'withdrawn' }).where(eq(requests.id, request.id)).run();
+    await tx.delete(waitlist).where(eq(waitlist.requestId, request.id)).run();
+    await writeAudit(
       tx,
       {
         siteId: request.siteId,
@@ -92,22 +96,22 @@ export function declineOffer(db: Db, actor: Actor, offerId: string, now: Date) {
  * Expire open offers past their window. The request expires too (the person has had
  * their turn; they can request again). Returns what freed a bay, for re-offering.
  */
-export function expireOffers(
+export async function expireOffers(
   db: Db,
   now: Date,
-): { siteId: string; date: string; offerId: string }[] {
-  return db.transaction((tx) => {
-    const due = tx
+): Promise<{ siteId: string; date: string; offerId: string }[]> {
+  return await db.transaction(async (tx) => {
+    const due = await tx
       .select({ offer: offers, request: requests })
       .from(offers)
       .innerJoin(requests, eq(requests.id, offers.requestId))
       .where(and(eq(offers.status, 'open'), lte(offers.expiresAt, now)))
       .all();
     for (const { offer, request } of due) {
-      tx.update(offers).set({ status: 'expired' }).where(eq(offers.id, offer.id)).run();
-      tx.update(requests).set({ status: 'expired' }).where(eq(requests.id, request.id)).run();
-      tx.delete(waitlist).where(eq(waitlist.requestId, request.id)).run();
-      writeAudit(
+      await tx.update(offers).set({ status: 'expired' }).where(eq(offers.id, offer.id)).run();
+      await tx.update(requests).set({ status: 'expired' }).where(eq(requests.id, request.id)).run();
+      await tx.delete(waitlist).where(eq(waitlist.requestId, request.id)).run();
+      await writeAudit(
         tx,
         {
           siteId: request.siteId,

@@ -185,7 +185,7 @@ test('first visit on 4G, no cache (reported, not asserted)', async ({ browser })
   });
   const t0 = Date.now();
   await page.goto('/login');
-  await expect(page.getByRole('button', { name: 'Continue with SSO' })).toBeVisible({
+  await expect(page.getByRole('button', { name: 'Meera Admin' })).toBeVisible({
     timeout: 30_000,
   });
   console.log(`[perf] first visit on 4G, uncompressed: ${Date.now() - t0} ms`);

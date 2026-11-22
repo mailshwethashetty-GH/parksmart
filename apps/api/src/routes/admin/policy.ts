@@ -26,30 +26,34 @@ export const adminPolicyRoutes: FastifyPluginAsyncZod = async (app) => {
   const tags = ['admin: policy'];
   const detail = { 200: policyVersionDetailSchema };
 
-  app.get('/policy', { schema: { tags, response: { 200: policyResponseSchema } } }, async (req) =>
-    getPolicy(app.db, actorOf(req).siteId, app.clock()),
+  app.get(
+    '/policy',
+    { schema: { tags, response: { 200: policyResponseSchema } } },
+    async (req) => await getPolicy(app.db, actorOf(req).siteId, app.clock()),
   );
   app.get(
     '/policy/versions/:version',
     { schema: { tags, params: versionParamsSchema, response: detail } },
-    async (req) => getPolicyVersion(app.db, actorOf(req).siteId, req.params.version, app.clock()),
+    async (req) =>
+      await getPolicyVersion(app.db, actorOf(req).siteId, req.params.version, app.clock()),
   );
   app.post(
     '/policy/versions',
     { schema: { tags, response: { 201: policyVersionDetailSchema } } },
-    async (req, reply) => reply.status(201).send(createDraft(app.db, actorOf(req), app.clock())),
+    async (req, reply) =>
+      reply.status(201).send(await createDraft(app.db, actorOf(req), app.clock())),
   );
   app.put(
     '/policy/versions/:version/rules',
     { schema: { tags, params: versionParamsSchema, body: rulesUpdateSchema, response: detail } },
     async (req) =>
-      updateDraftRules(app.db, actorOf(req), req.params.version, req.body.rules, app.clock()),
+      await updateDraftRules(app.db, actorOf(req), req.params.version, req.body.rules, app.clock()),
   );
   app.delete(
     '/policy/versions/:version',
     { schema: { tags, params: versionParamsSchema, response: { 200: okResponseSchema } } },
     async (req) => {
-      discardDraft(app.db, actorOf(req), req.params.version, app.clock());
+      await discardDraft(app.db, actorOf(req), req.params.version, app.clock());
       return { ok: true as const };
     },
   );
@@ -57,7 +61,7 @@ export const adminPolicyRoutes: FastifyPluginAsyncZod = async (app) => {
     '/policy/versions/:version/publish',
     { schema: { tags, params: versionParamsSchema, body: publishSchema, response: detail } },
     async (req) =>
-      publishDraft(app.db, actorOf(req), req.params.version, req.body.reason, app.clock()),
+      await publishDraft(app.db, actorOf(req), req.params.version, req.body.reason, app.clock()),
   );
   app.post(
     '/rules/feasibility',
@@ -68,6 +72,6 @@ export const adminPolicyRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: feasibilityResponseSchema },
       },
     },
-    async (req) => checkFeasibility(app.db, actorOf(req).siteId, req.body.rules),
+    async (req) => await checkFeasibility(app.db, actorOf(req).siteId, req.body.rules),
   );
 };

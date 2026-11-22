@@ -16,14 +16,14 @@ import { assertInSite, iso } from './_scope';
 import { writeAudit } from './audit';
 import { loadSite } from './site';
 
-export function listUsers(db: Db, siteId: string, q?: string, role?: Role) {
+export async function listUsers(db: Db, siteId: string, q?: string, role?: Role) {
   const conditions = [eq(users.siteId, siteId), eq(users.active, true)];
   if (role) conditions.push(eq(users.role, role));
   if (q) {
     const pattern = `%${q.replace(/[%_]/g, '')}%`;
     conditions.push(or(like(users.name, pattern), like(users.email, pattern))!);
   }
-  return db
+  return await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role })
     .from(users)
     .where(and(...conditions))
@@ -32,37 +32,38 @@ export function listUsers(db: Db, siteId: string, q?: string, role?: Role) {
     .all();
 }
 
-export function listApprovals(db: Db, siteId: string, now: Date): Approval[] {
-  const { timezone } = loadSite(db, siteId);
-  return db
-    .select({ approval: approvals, userName: users.name })
-    .from(approvals)
-    .innerJoin(users, eq(users.id, approvals.userId))
-    .where(eq(users.siteId, siteId))
-    .orderBy(desc(approvals.createdAt))
-    .all()
-    .map(({ approval: a, userName }) => ({
-      id: a.id,
-      userId: a.userId,
-      userName,
-      kind: a.kind,
-      expiresOn: siteLocalDate(new Date(a.expiresAt.getTime() - 1), timezone),
-      approvedBy: a.approvedBy,
-      createdAt: iso(a.createdAt),
-      revokedAt: a.revokedAt ? iso(a.revokedAt) : null,
-      active: !a.revokedAt && a.expiresAt.getTime() > now.getTime(),
-    }));
+export async function listApprovals(db: Db, siteId: string, now: Date): Promise<Approval[]> {
+  const { timezone } = await loadSite(db, siteId);
+  return (
+    await db
+      .select({ approval: approvals, userName: users.name })
+      .from(approvals)
+      .innerJoin(users, eq(users.id, approvals.userId))
+      .where(eq(users.siteId, siteId))
+      .orderBy(desc(approvals.createdAt))
+      .all()
+  ).map(({ approval: a, userName }) => ({
+    id: a.id,
+    userId: a.userId,
+    userName,
+    kind: a.kind,
+    expiresOn: siteLocalDate(new Date(a.expiresAt.getTime() - 1), timezone),
+    approvedBy: a.approvedBy,
+    createdAt: iso(a.createdAt),
+    revokedAt: a.revokedAt ? iso(a.revokedAt) : null,
+    active: !a.revokedAt && a.expiresAt.getTime() > now.getTime(),
+  }));
 }
 
-export function createApproval(
+export async function createApproval(
   db: Db,
   actor: Actor,
   input: { userId: string; expiresOn: string },
   now: Date,
-): Approval {
-  const { timezone } = loadSite(db, actor.siteId);
+): Promise<Approval> {
+  const { timezone } = await loadSite(db, actor.siteId);
   const user = assertInSite(
-    db.select().from(users).where(eq(users.id, input.userId)).get(),
+    await db.select().from(users).where(eq(users.id, input.userId)).get(),
     actor.siteId,
     'User',
   );
@@ -72,7 +73,7 @@ export function createApproval(
   if (input.expiresOn < siteLocalDate(now, timezone)) {
     throw businessRule('APPROVAL_EXPIRY_PAST', 'The expiry date must be today or later.');
   }
-  const activeExisting = listApprovals(db, actor.siteId, now).find(
+  const activeExisting = (await listApprovals(db, actor.siteId, now)).find(
     (a) => a.userId === user.id && a.active,
   );
   if (activeExisting) {
@@ -82,8 +83,8 @@ export function createApproval(
   }
   // Valid through the end of `expiresOn` in the site's time zone.
   const expiresAt = siteLocalToUtc(addDays(input.expiresOn, 1), '00:00', timezone);
-  const id = db.transaction((tx) => {
-    const row = tx
+  const id = await db.transaction(async (tx) => {
+    const row = await tx
       .insert(approvals)
       .values({
         userId: user.id,
@@ -94,7 +95,7 @@ export function createApproval(
       })
       .returning({ id: approvals.id })
       .get();
-    writeAudit(
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -108,11 +109,16 @@ export function createApproval(
     );
     return row.id;
   });
-  return listApprovals(db, actor.siteId, now).find((a) => a.id === id)!;
+  return (await listApprovals(db, actor.siteId, now)).find((a) => a.id === id)!;
 }
 
-export function revokeApproval(db: Db, actor: Actor, approvalId: string, now: Date): Approval {
-  const row = db
+export async function revokeApproval(
+  db: Db,
+  actor: Actor,
+  approvalId: string,
+  now: Date,
+): Promise<Approval> {
+  const row = await db
     .select({ approval: approvals, siteId: users.siteId })
     .from(approvals)
     .innerJoin(users, eq(users.id, approvals.userId))
@@ -121,9 +127,9 @@ export function revokeApproval(db: Db, actor: Actor, approvalId: string, now: Da
   if (!row) throw notFound('Approval');
   assertInSite({ siteId: row.siteId }, actor.siteId, 'Approval');
   if (row.approval.revokedAt) throw conflict('This approval is already revoked.');
-  db.transaction((tx) => {
-    tx.update(approvals).set({ revokedAt: now }).where(eq(approvals.id, approvalId)).run();
-    writeAudit(
+  await db.transaction(async (tx) => {
+    await tx.update(approvals).set({ revokedAt: now }).where(eq(approvals.id, approvalId)).run();
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -135,5 +141,5 @@ export function revokeApproval(db: Db, actor: Actor, approvalId: string, now: Da
       now,
     );
   });
-  return listApprovals(db, actor.siteId, now).find((a) => a.id === approvalId)!;
+  return (await listApprovals(db, actor.siteId, now)).find((a) => a.id === approvalId)!;
 }

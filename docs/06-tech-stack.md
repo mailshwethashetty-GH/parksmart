@@ -11,10 +11,10 @@
 | Frontend | **React 19 + Vite**, installable PWA | Mobile-first for employees; desktop for admins |
 | Backend | **Node.js + Fastify 5** | Fast, typed, built-in logging; p95 < 500 ms |
 | API | **REST + OpenAPI**, generated from Zod schemas | One schema validates and documents. Ready for access-control and HRMS links |
-| DB | **SQLite** via `better-sqlite3` + **Drizzle ORM** | One file inside the project, no DB server; Postgres path kept open |
-| Scheduling | **Croner** + `job_runs` table | Rounds and auto-release with no Redis |
+| DB | **SQLite dialect via libSQL** (`@libsql/client`) + **Drizzle ORM**: **Turso** when hosted, a local SQLite file in dev, tests and Docker (ADR-016) | Same SQL and constraints everywhere; no DB server to run; Postgres path kept open |
+| Scheduling | **Croner** in a long-running server, or `GET /api/v1/cron/tick` called by GitHub Actions on Vercel; `job_runs` table for idempotency | Rounds and auto-release with no Redis |
 | AI | **Anthropic TypeScript SDK** (Claude API) | NL requests, reasons, anomaly flags, AI stages |
-| Hosting | **One Docker container on a VM in an India region** | SQLite needs a persistent disk and a single instance |
+| Hosting | **Vercel** (web on the CDN, API as one Node function, `bom1` Mumbai) + **Turso** (capstone prototype, ADR-016). One Docker container on a VM stays as the alternative for a real pilot | The capstone requires Vercel and Turso; nothing needs a persistent disk |
 
 ## Frontend — `apps/web`
 
@@ -28,7 +28,7 @@
 | Dates | `react-day-picker`, `date-fns`, `date-fns-tz` |
 | QR | `qrcode.react` 4 (display: employee QR, bay stickers), `@zxing/browser` (camera scanner on `/gate`, loaded on demand; handheld scanners type into the field instead) |
 | Charts | Recharts |
-| Live updates | Server-Sent Events: `GET /api/v1/stream/me` sends "your requests changed" (no data); the app refetches. In-process event bus (one instance). 30 s polling stays as a fallback |
+| Live updates | Server-Sent Events: `GET /api/v1/stream/me` sends "your requests changed" (no data); the app refetches. In-process event bus (one instance). 30 s polling stays as a fallback, and is the only mechanism on Vercel (the stream answers 204, which stops the browser retrying) |
 | Text strings | `react-i18next` + `i18next` (English at launch, `src/locales/en.json`) |
 
 ## Backend — `apps/api`
@@ -36,7 +36,7 @@
 | Concern | Library / approach |
 | --- | --- |
 | HTTP | Fastify 5, `fastify-plugin`, `fastify-type-provider-zod`, `@fastify/swagger`, `@fastify/swagger-ui` (dev only), `@fastify/static` (serves built web app) |
-| Auth | Better Auth + `@better-auth/sso` (OIDC/SAML for Google Workspace, Microsoft Entra), Drizzle/SQLite adapter, httpOnly cookie sessions (`parksmart.` prefix), mounted at `/api/v1/auth`. Only admins may register an identity provider. Dev-only login is a small Better Auth plugin registered only outside production |
+| Auth | Better Auth + `@better-auth/sso` (OIDC/SAML for Google Workspace, Microsoft Entra), Drizzle/SQLite adapter, httpOnly cookie sessions (`parksmart.` prefix), mounted at `/api/v1/auth`. Only admins may register an identity provider. Dev-only login is a small Better Auth plugin registered only outside production; prototype demo mode (`DEMO_MODE`, ADR-017) registers it for the sample `@parksmart.test` people only |
 | Roles | Middleware: `employee`, `admin`, `security`, scoped by site |
 | Security | `@fastify/helmet` (strict CSP in production), `@fastify/rate-limit` (300/min/IP), `@fastify/cookie` + `@fastify/csrf-protection` (signed cookie + `x-csrf-token` header), same-origin (no CORS plugin needed) |
 | QR tokens | `jose` 6, HS256 with `QR_SIGNING_SECRET`: booking tokens valid only on the booking's site-local day (`nbf`/`exp`); static bay-sticker tokens |
@@ -48,7 +48,7 @@
 
 ### Scheduled jobs
 
-All round jobs run from one Croner tick every minute, in this order for each site: round-deadlines → weekly → daily → same-day, then offer-expiry. Each claims a `job_runs` key first (`weekly:<site>:<week>`, `daily:<site>:<date>`, `same-day:<site>:<date>:<HH:mm>`), so restarts never double-run.
+On a long-running server, Croner ticks every minute. On Vercel there is no long-running process: GitHub Actions (`.github/workflows/tick.yml`) calls `GET /api/v1/cron/tick` with `Authorization: Bearer $CRON_SECRET` every 5 minutes (GitHub may start it a few minutes late), and Vercel's daily cron is a backstop. Both run the same `runTick` (rounds → notifications and email → recurring requests). All round jobs run from one tick, in this order for each site: round-deadlines → weekly → daily → same-day, then offer-expiry. Each claims a `job_runs` key first (`weekly:<site>:<week>`, `daily:<site>:<date>`, `same-day:<site>:<date>:<HH:mm>`), so restarts never double-run.
 
 | Job | Schedule (site time) | Purpose |
 | --- | --- | --- |
@@ -71,10 +71,10 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 
 ## Database — `packages/db`
 
-- `better-sqlite3` + Drizzle ORM; migrations via `drizzle-kit`.
-- Settings applied at startup: `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`, `synchronous=NORMAL`.
-- File: `data/parksmart.db` (gitignored). Test DBs use `:memory:`.
-- Backups: **Litestream** to S3-compatible storage in an India region.
+- `@libsql/client` + Drizzle ORM (`drizzle-orm/libsql`); migrations via `drizzle-kit`, applied with `pnpm db:migrate` (to Turso when `DATABASE_URL` is set). All database calls are async; ESLint's `no-floating-promises` / `no-misused-promises` / `await-thenable` guard against a missing `await` in `apps/api` and `packages/db`.
+- Connection: `DATABASE_URL` + `DATABASE_AUTH_TOKEN` (Turso, `libsql://…`), else `file:` + `DATABASE_PATH`. Local files get `journal_mode=WAL`, `busy_timeout=5000`, `synchronous=NORMAL`; every connection sets `foreign_keys=ON`.
+- File: `data/parksmart.db` (gitignored). Test DBs are temporary files copied from a migrated template (libSQL reconnects after a transaction, which would lose `:memory:`).
+- Backups: Turso's built-in point-in-time restore when hosted; **Litestream** to S3-compatible storage in an India region for the Docker image.
 - Encryption at rest: host disk encryption; `better-sqlite3-multiple-ciphers` (SQLCipher) if a customer requires it.
 - **Migration trigger to Postgres:** many customers on one deployment, or more than one app instance. Avoid SQLite-only SQL to keep this cheap.
 
@@ -106,8 +106,8 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 - Single Docker image (`Dockerfile`, Node 22 bookworm-slim, runs as `node` under `tini`): Fastify serves API + built web app; `pnpm deploy --prod` gives the API a production-only `node_modules`. Docker `HEALTHCHECK` on `/health`.
 - **Litestream** 0.3 in the image: with `LITESTREAM_REPLICA_URL` set, the entrypoint restores an empty volume from the replica, then runs the app under `litestream replicate` (S3 `ap-south-1`, 30-day retention). Config in `deploy/litestream.yml`.
 - **Caddy** reverse proxy for automatic HTTPS and gzip/zstd (`deploy/Caddyfile`, `deploy/docker-compose.yml`).
-- Host: AWS Lightsail/EC2 (ap-south-1, Mumbai) or Azure Central India, with a persistent volume for `data/`.
-- **Not** Vercel, Netlify or other serverless hosts (temporary file systems break SQLite and the scheduler).
+- Host (Docker): AWS Lightsail/EC2 (ap-south-1, Mumbai) or Azure Central India, with a persistent volume for `data/`.
+- **Vercel** (ADR-016): `scripts/vercel-build.mjs` (`pnpm build:vercel`, run by `vercel.json`) writes the Build Output API folder `.vercel/output`: the Vite build as static files, the whole API bundled by esbuild into one Node 22 function (`@libsql/client` aliased to its HTTP-only `web` build, so no native modules), and routes (`/api/*`, `/health` → function; everything else → SPA, with Helmet-equivalent security headers). Region `bom1`; Turso database in AWS `ap-south-1`. Install uses `packageManager` (pnpm 12) via `ENABLE_EXPERIMENTAL_COREPACK=1`.
 - Monitoring: `/health`, Better Stack or UptimeRobot, Sentry (`@sentry/node`, API errors and failed jobs; all Sentry 11 data collection off and events scrubbed: no user, cookies, bodies, query strings or AI inputs). Steps in `14-operations-runbook.md`.
 
 ## Environment variables (initial)
@@ -115,6 +115,10 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 ```
 NODE_ENV, PORT, APP_URL
 DATABASE_PATH=./data/parksmart.db
+DATABASE_URL, DATABASE_AUTH_TOKEN         # Turso; overrides DATABASE_PATH; required on Vercel
+CRON_SECRET                               # enables /cron/tick; required on Vercel (VERCEL=1)
+DEMO_MODE                                 # prototype only: sample people sign in (ADR-017)
+ALLOWED_EMAILS                            # SSO from outside ORG_EMAIL_DOMAIN; join the first site
 SESSION_SECRET, QR_SIGNING_SECRET
 ORG_EMAIL_DOMAIN                          # SSO users' email domain; required with SSO
 SSO_GOOGLE_CLIENT_ID, SSO_GOOGLE_CLIENT_SECRET          # one provider, required in production

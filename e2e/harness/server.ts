@@ -29,9 +29,9 @@ mkdirSync(dirname(dbPath), { recursive: true });
 for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) rmSync(f, { force: true });
 
 let now = new Date(E2E_START);
-const db = createDb(dbPath);
-runMigrations(db);
-seed(db, now);
+const db = await createDb(`file:${dbPath}`);
+await runMigrations(db);
+await seed(db, now);
 
 const sent: { to: string; subject: string; text: string }[] = [];
 const mailer: Mailer = {
@@ -66,9 +66,9 @@ app.post<{ Body: { at: string } }>('/__e2e/clock', async (req) => {
 
 /** One scheduler tick at the current clock: rounds, then notifications and email. */
 app.post('/__e2e/tick', async () => {
-  const events = roundJobs(db, now);
-  afterJobs(app, events);
-  const notices = notificationJobs(db, now);
+  const events = await roundJobs(db, now);
+  await afterJobs(app, events);
+  const notices = await notificationJobs(db, now);
   for (const e of notices) app.events.notifyUsers(e.userIds);
   const email = await dispatchEmails(db, mailer, now);
   return {

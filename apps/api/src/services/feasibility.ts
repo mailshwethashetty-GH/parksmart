@@ -25,46 +25,46 @@ export const COVERAGE_THRESHOLD = 0.9;
 type Issue = RuleFeasibility['issues'][number];
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-function coverageCounts(db: Db, siteId: string) {
+async function coverageCounts(db: Db, siteId: string) {
   const activeEmployee = and(
     eq(users.siteId, siteId),
     eq(users.role, 'employee'),
     eq(users.active, true),
   );
-  const countProfiles = (column: Parameters<typeof isNotNull>[0]) =>
-    db
+  const countProfiles = async (column: Parameters<typeof isNotNull>[0]) =>
+    (await db
       .select({ n: countDistinct(users.id) })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(and(activeEmployee, isNotNull(column)))
-      .get()!.n;
-  const active = db
+      .get())!.n;
+  const active = (await db
     .select({ n: countDistinct(users.id) })
     .from(users)
     .where(activeEmployee)
-    .get()!.n;
-  const withVehicle = db
+    .get())!.n;
+  const withVehicle = (await db
     .select({ n: countDistinct(users.id) })
     .from(users)
     .innerJoin(vehicles, eq(vehicles.userId, users.id))
     .where(activeEmployee)
-    .get()!.n;
+    .get())!.n;
   const counts: Partial<Record<CoverageSource, number>> = {
-    profile_distance: countProfiles(userProfiles.distanceBand),
-    profile_client_facing: countProfiles(userProfiles.clientFacing),
-    profile_join_date: countProfiles(userProfiles.joinDate),
+    profile_distance: await countProfiles(userProfiles.distanceBand),
+    profile_client_facing: await countProfiles(userProfiles.clientFacing),
+    profile_join_date: await countProfiles(userProfiles.joinDate),
     vehicle_ev: withVehicle,
     not_available: 0,
   };
   return { active, counts };
 }
 
-export function checkFeasibility(
+export async function checkFeasibility(
   db: Db,
   siteId: string,
   rules: readonly RuleInput[],
-): FeasibilityResponse {
-  const { active, counts } = coverageCounts(db, siteId);
+): Promise<FeasibilityResponse> {
+  const { active, counts } = await coverageCounts(db, siteId);
   const items = rules.map((rule): RuleFeasibility => {
     const meta = RULE_META[rule.key];
     const issues: Issue[] = [];

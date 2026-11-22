@@ -19,8 +19,8 @@ const DRIZZLE_TABLES: Record<string, SQLiteTable> = {
   ssoProviders: schema.ssoProviders,
 };
 
-describe('Better Auth schema compatibility', () => {
-  const auth = createAuth(createTestDb(), loadEnv({ ...TEST_ENV }));
+describe('Better Auth schema compatibility', async () => {
+  const auth = createAuth(await createTestDb(), loadEnv({ ...TEST_ENV }));
   const expected = getSchema(auth.options);
 
   it('every Better Auth model maps to one of our tables', () => {

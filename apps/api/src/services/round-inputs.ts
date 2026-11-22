@@ -51,47 +51,49 @@ export type RoundInputs = {
   policyVersionId: string;
 };
 
-export function buildRoundInputs(
+export async function buildRoundInputs(
   db: Db,
   opts: { siteId: string; type: RoundType; dates: IsoDate[]; seed: string; now: Date },
-): RoundInputs {
+): Promise<RoundInputs> {
   const { siteId, type, dates } = opts;
-  const site = loadSite(db, siteId);
+  const site = await loadSite(db, siteId);
   const week = weekStart(dates[0]!);
-  const { version, rules } = policyVersionForWeek(db, siteId, week);
+  const { version, rules } = await policyVersionForWeek(db, siteId, week);
 
   // Requests. Same-day: skip anyone holding an open offer (they are already being served).
   const withOpenOffer = new Set(
-    db
-      .select({ requestId: offers.requestId })
-      .from(offers)
-      .innerJoin(requests, eq(requests.id, offers.requestId))
-      .where(and(eq(offers.status, 'open'), inArray(requests.date, dates)))
-      .all()
-      .map((r) => r.requestId),
+    (
+      await db
+        .select({ requestId: offers.requestId })
+        .from(offers)
+        .innerJoin(requests, eq(requests.id, offers.requestId))
+        .where(and(eq(offers.status, 'open'), inArray(requests.date, dates)))
+        .all()
+    ).map((r) => r.requestId),
   );
-  const reqRows = db
-    .select()
-    .from(requests)
-    .where(
-      and(
-        eq(requests.siteId, siteId),
-        inArray(requests.date, dates),
-        inArray(requests.status, COLLECTS[type]),
-      ),
-    )
-    .orderBy(asc(requests.id))
-    .all()
-    .filter((r) => !withOpenOffer.has(r.id));
+  const reqRows = (
+    await db
+      .select()
+      .from(requests)
+      .where(
+        and(
+          eq(requests.siteId, siteId),
+          inArray(requests.date, dates),
+          inArray(requests.status, COLLECTS[type]),
+        ),
+      )
+      .orderBy(asc(requests.id))
+      .all()
+  ).filter((r) => !withOpenOffer.has(r.id));
 
   // Bays and what is unavailable on each date: blocks, held bookings, open offers.
-  const bayRows = db
+  const bayRows = await db
     .select()
     .from(bays)
     .where(and(eq(bays.siteId, siteId), eq(bays.active, true)))
     .all();
   const unavailable: { bayId: string; date: IsoDate }[] = [];
-  const blocks = db
+  const blocks = await db
     .select()
     .from(bayBlocks)
     .where(
@@ -110,7 +112,7 @@ export function buildRoundInputs(
       }
     }
   }
-  for (const b of db
+  for (const b of await db
     .select({ bayId: bookings.bayId, date: bookings.date })
     .from(bookings)
     .where(
@@ -123,7 +125,7 @@ export function buildRoundInputs(
     .all()) {
     unavailable.push(b);
   }
-  for (const o of db
+  for (const o of await db
     .select({ bayId: offers.bayId, date: requests.date })
     .from(offers)
     .innerJoin(requests, eq(requests.id, offers.requestId))
@@ -138,23 +140,21 @@ export function buildRoundInputs(
   const history: EngineHistory[] = [];
   if (userIds.length > 0) {
     const profiles = new Map(
-      db
-        .select()
-        .from(userProfiles)
-        .where(inArray(userProfiles.userId, userIds))
-        .all()
-        .map((p) => [p.userId, p]),
+      (await db.select().from(userProfiles).where(inArray(userProfiles.userId, userIds)).all()).map(
+        (p) => [p.userId, p],
+      ),
     );
     const evOwners = new Set(
-      db
-        .select({ userId: vehicles.userId })
-        .from(vehicles)
-        .where(and(inArray(vehicles.userId, userIds), eq(vehicles.isEv, true)))
-        .all()
-        .map((v) => v.userId),
+      (
+        await db
+          .select({ userId: vehicles.userId })
+          .from(vehicles)
+          .where(and(inArray(vehicles.userId, userIds), eq(vehicles.isEv, true)))
+          .all()
+      ).map((v) => v.userId),
     );
     const approvalThrough = new Map<string, IsoDate>();
-    for (const a of db
+    for (const a of await db
       .select()
       .from(approvals)
       .where(
@@ -188,7 +188,7 @@ export function buildRoundInputs(
     const fairnessFrom = addDays(week, -7 * Number(fairness?.config.lookbackWeeks ?? 4));
     const noShowFrom = addDays(week, -7 * Number(noShow?.config.lookbackWeeks ?? 4));
     const earliest = fairnessFrom < noShowFrom ? fairnessFrom : noShowFrom;
-    const won = db
+    const won = await db
       .select({ userId: bookings.userId, date: bookings.date, status: bookings.status })
       .from(bookings)
       .where(
@@ -217,7 +217,7 @@ export function buildRoundInputs(
   }
 
   // Weeks of pilot data: whole weeks since the first published round's first day.
-  const first = db
+  const first = await db
     .select({ from: rounds.targetDateFrom })
     .from(rounds)
     .where(and(eq(rounds.siteId, siteId), eq(rounds.status, 'published')))

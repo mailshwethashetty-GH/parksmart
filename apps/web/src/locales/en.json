@@ -12,11 +12,22 @@
   },
   "login": {
     "title": "Sign in",
-    "ssoLabel": "Work email",
-    "ssoButton": "Continue with SSO",
-    "ssoHint": "You'll be sent to your company's sign-in page.",
-    "devTitle": "Dev login",
-    "devHint": "Development only. Pick a seeded user.",
+    "ssoHint": "Use your work account. You'll be sent to its sign-in page.",
+    "ssoButton": {
+      "google": "Continue with Google",
+      "entra": "Continue with Microsoft"
+    },
+    "noMethods": "Sign-in is not set up yet. Ask your administrator.",
+    "sample": {
+      "dev": {
+        "title": "Dev login",
+        "hint": "Development only. Pick a seeded user."
+      },
+      "demo": {
+        "title": "Demo: sign in as a sample person",
+        "hint": "Prototype demo with made-up people and data. Pick a role to explore."
+      }
+    },
     "failed": "Sign-in failed: {{message}}"
   },
   "nav": {

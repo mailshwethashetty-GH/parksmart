@@ -60,13 +60,13 @@ export async function rewriteRoundReasons(
   opts: { concurrency?: number; now?: () => Date } = {},
 ): Promise<RewriteSummary> {
   if (!ai) return { status: 'skipped', reason: 'NO_AI' };
-  const round = db.select().from(rounds).where(eq(rounds.id, roundId)).get();
+  const round = await db.select().from(rounds).where(eq(rounds.id, roundId)).get();
   if (!round) return { status: 'skipped', reason: 'NOT_FOUND' };
   // Server-side stage check (non-negotiable #4).
-  if (loadSite(db, round.siteId).aiStage < EXPLAIN_STAGE)
+  if ((await loadSite(db, round.siteId)).aiStage < EXPLAIN_STAGE)
     return { status: 'skipped', reason: 'AI_STAGE' };
 
-  const rows = db
+  const rows = await db
     .select({ allocation: allocations, requestedType: requests.bayType })
     .from(allocations)
     .innerJoin(requests, eq(requests.id, allocations.requestId))
@@ -113,7 +113,8 @@ export async function rewriteRoundReasons(
       output = { ...result, accepted: ok };
       if (ok) {
         // Only replace the reason we rewrote (an admin override may have changed it).
-        db.update(allocations)
+        await db
+          .update(allocations)
           .set({ reasonText: result.text })
           .where(and(eq(allocations.id, a.id), eq(allocations.reasonText, template)))
           .run();
@@ -124,7 +125,8 @@ export async function rewriteRoundReasons(
       error =
         err instanceof Anthropic.APIError ? `${err.constructor.name} ${err.status}` : String(err);
     }
-    db.insert(aiLogs)
+    await db
+      .insert(aiLogs)
       .values({
         siteId: round.siteId,
         purpose: 'reason_rewrite',

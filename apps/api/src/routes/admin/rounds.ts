@@ -23,13 +23,13 @@ export const adminRoundRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) =>
-      getCollation(app.db, actorOf(req).siteId, app.clock(), req.query.from, req.query.days),
+      await getCollation(app.db, actorOf(req).siteId, app.clock(), req.query.from, req.query.days),
   );
   app.get(
     '/rounds',
     { schema: { tags, querystring: roundsQuerySchema, response: { 200: roundsResponseSchema } } },
     async (req) => ({
-      items: listRounds(
+      items: await listRounds(
         app.db,
         actorOf(req).siteId,
         app.clock(),

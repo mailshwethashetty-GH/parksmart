@@ -38,7 +38,7 @@ Read the relevant doc **before** working on an area. Do not load every doc for e
 3. **The engine stays pure and deterministic.** `packages/engine` has no DB, network, clock or `Math.random` calls. Same inputs + seed = same output.
 4. **AI never changes rules or weights.** It may only explain, flag or suggest. The current AI stage (1/2/3) is checked on the server.
 5. **Every allocation, override, release and policy change writes to `audit_log`** with actor, time and reason. The audit log is append-only.
-6. **SSO only.** No local passwords. The dev-only login must be disabled when `NODE_ENV=production`.
+6. **SSO only.** No local passwords. The dev-only login must be disabled when `NODE_ENV=production`. Only exception: `DEMO_MODE` for the capstone prototype, limited to the sample `@parksmart.test` people (ADR-017).
 7. **Collect the least personal data.** Never store medical details (only an approved flag with an expiry). Never send names, vehicle numbers or medical flags to the Claude API.
 8. **Policy changes take effect from the next weekly round**, never mid-round.
 9. **All site times are in the site's time zone** (default `Asia/Kolkata`). Store UTC in the DB.
@@ -47,7 +47,7 @@ Read the relevant doc **before** working on an area. Do not load every doc for e
 
 ## Stack (summary; full detail in `docs/06-tech-stack.md`)
 
-TypeScript (strict) · pnpm monorepo · React 19 + Vite PWA · Tailwind + shadcn/ui · TanStack Query · Fastify 5 · Zod (shared schemas) · REST + OpenAPI · SQLite (`better-sqlite3`) + Drizzle ORM · Croner scheduler · Better Auth (OIDC/SAML SSO) · Anthropic SDK · Vitest + fast-check + Playwright.
+TypeScript (strict) · pnpm monorepo · React 19 + Vite PWA · Tailwind + shadcn/ui · TanStack Query · Fastify 5 · Zod (shared schemas) · REST + OpenAPI · libSQL (Turso hosted, SQLite file locally; all DB calls async) + Drizzle ORM · Croner scheduler or `/cron/tick` · Vercel hosting · Better Auth (OIDC/SAML SSO) · Anthropic SDK · Vitest + fast-check + Playwright.
 
 ## Commands
 
@@ -59,8 +59,9 @@ pnpm test:e2e         # build web, then Playwright (e2e/: pilot week + axe + per
 pnpm lint && pnpm typecheck
 pnpm format           # prettier --write (CI runs format:check)
 pnpm build            # web (vite) + api (esbuild bundle)
+pnpm build:vercel     # .vercel/output: static web + bundled API function (ADR-016)
 pnpm db:generate      # drizzle-kit: create a migration from schema changes
-pnpm db:migrate       # apply migrations to data/parksmart.db
+pnpm db:migrate       # apply migrations to data/parksmart.db (or Turso if DATABASE_URL is set)
 pnpm db:seed          # load sample site, bays, users, policy
 ```
 

@@ -21,7 +21,9 @@ export const adminPeopleRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/users',
     { schema: { tags, querystring: usersQuerySchema, response: { 200: usersResponseSchema } } },
-    async (req) => ({ items: listUsers(app.db, actorOf(req).siteId, req.query.q, req.query.role) }),
+    async (req) => ({
+      items: await listUsers(app.db, actorOf(req).siteId, req.query.q, req.query.role),
+    }),
   );
 
   app.patch(
@@ -34,25 +36,25 @@ export const adminPeopleRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: userSummarySchema },
       },
     },
-    async (req) => setUserRole(app.db, actorOf(req), req.params.id, req.body, app.clock()),
+    async (req) => await setUserRole(app.db, actorOf(req), req.params.id, req.body, app.clock()),
   );
 
   app.get(
     '/approvals',
     { schema: { tags, response: { 200: approvalsResponseSchema } } },
     async (req) => ({
-      items: listApprovals(app.db, actorOf(req).siteId, app.clock()),
+      items: await listApprovals(app.db, actorOf(req).siteId, app.clock()),
     }),
   );
   app.post(
     '/approvals',
     { schema: { tags, body: approvalCreateSchema, response: { 201: approvalSchema } } },
     async (req, reply) =>
-      reply.status(201).send(createApproval(app.db, actorOf(req), req.body, app.clock())),
+      reply.status(201).send(await createApproval(app.db, actorOf(req), req.body, app.clock())),
   );
   app.post(
     '/approvals/:id/revoke',
     { schema: { tags, params: idParamsSchema, response: { 200: approvalSchema } } },
-    async (req) => revokeApproval(app.db, actorOf(req), req.params.id, app.clock()),
+    async (req) => await revokeApproval(app.db, actorOf(req), req.params.id, app.clock()),
   );
 };

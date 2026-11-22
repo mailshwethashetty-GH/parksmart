@@ -8,15 +8,15 @@ import { businessRule, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { writeAudit } from './audit';
 
-export function setUserRole(
+export async function setUserRole(
   db: Db,
   actor: Actor,
   userId: string,
   body: { role: Role; reason: string },
   now: Date,
 ) {
-  return db.transaction((tx) => {
-    const user = tx
+  return await db.transaction(async (tx) => {
+    const user = await tx
       .select()
       .from(users)
       .where(and(eq(users.id, userId), eq(users.siteId, actor.siteId), eq(users.active, true)))
@@ -26,8 +26,8 @@ export function setUserRole(
       throw businessRule('OWN_ROLE', 'Ask another admin to change your own role.');
     }
     if (user.role !== body.role) {
-      tx.update(users).set({ role: body.role }).where(eq(users.id, user.id)).run();
-      writeAudit(
+      await tx.update(users).set({ role: body.role }).where(eq(users.id, user.id)).run();
+      await writeAudit(
         tx,
         {
           siteId: actor.siteId,

@@ -14,6 +14,6 @@ export const meRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: meResponseSchema, 401: errorResponseSchema },
       },
     },
-    async (req) => getMe(app.db, actorOf(req).id),
+    async (req) => await getMe(app.db, actorOf(req).id),
   );
 };

@@ -46,9 +46,9 @@ export function currentSameDaySlot(site: Site, now: Date): string | null {
   return minutes > toMinutes(endTime) ? null : fromMinutes(minutes);
 }
 
-function deadlines(db: Db, site: Site, now: Date, events: JobEvent[]) {
+async function deadlines(db: Db, site: Site, now: Date, events: JobEvent[]) {
   if (!site.settings.autoPublishAtDayStart) return;
-  const pending = db
+  const pending = await db
     .select()
     .from(rounds)
     .where(and(eq(rounds.siteId, site.id), eq(rounds.status, 'pending_review')))
@@ -61,7 +61,7 @@ function deadlines(db: Db, site: Site, now: Date, events: JobEvent[]) {
       site.timezone,
     );
     if (now.getTime() < dayStart.getTime()) continue;
-    publishRound(db, round.id, 'auto_timeout', null, now);
+    await publishRound(db, round.id, 'auto_timeout', null, now);
     events.push({
       job: 'round-deadlines',
       siteId: site.id,
@@ -70,7 +70,7 @@ function deadlines(db: Db, site: Site, now: Date, events: JobEvent[]) {
   }
 }
 
-function weekly(db: Db, site: Site, now: Date, events: JobEvent[]) {
+async function weekly(db: Db, site: Site, now: Date, events: JobEvent[]) {
   const { weekday, time } = site.settings.rounds.weekly;
   const today = siteLocalDate(now, site.timezone);
   const runDate = addDays(weekStart(today), weekday - 1);
@@ -81,14 +81,17 @@ function weekly(db: Db, site: Site, now: Date, events: JobEvent[]) {
     isWorkingDay(d, site.settings.workingDays),
   );
   const key = `weekly:${site.id}:${targetWeek}`;
-  const out = runOnce(db, key, now, () =>
-    runRound(db, { siteId: site.id, type: 'weekly', dates, now }),
+  const out = await runOnce(
+    db,
+    key,
+    now,
+    async () => await runRound(db, { siteId: site.id, type: 'weekly', dates, now }),
   );
   if (out.ran && out.result.status !== 'skipped')
     events.push({ job: 'weekly-round', siteId: site.id, key, detail: summarise(out.result) });
 }
 
-function daily(db: Db, site: Site, now: Date, events: JobEvent[]) {
+async function daily(db: Db, site: Site, now: Date, events: JobEvent[]) {
   const today = siteLocalDate(now, site.timezone);
   if (!isWorkingDay(today, site.settings.workingDays)) return;
   if (
@@ -98,67 +101,80 @@ function daily(db: Db, site: Site, now: Date, events: JobEvent[]) {
   const target = nextWorkingDay(today, site.settings.workingDays);
   const closes = siteLocalToUtc(target, site.settings.rounds.sameDay.startTime, site.timezone);
   if (now.getTime() >= closes.getTime()) return;
-  if (pendingRoundsCovering(db, site.id, target).length > 0) return; // publish in order (ADR-008)
+  if ((await pendingRoundsCovering(db, site.id, target)).length > 0) return; // publish in order (ADR-008)
   const key = `daily:${site.id}:${target}`;
-  const out = runOnce(db, key, now, () =>
-    runRound(db, { siteId: site.id, type: 'daily', dates: [target], now }),
+  const out = await runOnce(
+    db,
+    key,
+    now,
+    async () => await runRound(db, { siteId: site.id, type: 'daily', dates: [target], now }),
   );
   if (out.ran && out.result.status !== 'skipped')
     events.push({ job: 'daily-round', siteId: site.id, key, detail: summarise(out.result) });
 }
 
-function sameDayRun(db: Db, site: Site, date: IsoDate, key: string, now: Date, events: JobEvent[]) {
-  if (pendingRoundsCovering(db, site.id, date).length > 0) return;
-  const out = runOnce(db, key, now, () =>
-    runRound(db, { siteId: site.id, type: 'same_day', dates: [date], now }),
+async function sameDayRun(
+  db: Db,
+  site: Site,
+  date: IsoDate,
+  key: string,
+  now: Date,
+  events: JobEvent[],
+) {
+  if ((await pendingRoundsCovering(db, site.id, date)).length > 0) return;
+  const out = await runOnce(
+    db,
+    key,
+    now,
+    async () => await runRound(db, { siteId: site.id, type: 'same_day', dates: [date], now }),
   );
   if (out.ran && out.result.status !== 'skipped')
     events.push({ job: 'same-day-round', siteId: site.id, key, detail: summarise(out.result) });
 }
 
-function sameDay(db: Db, site: Site, now: Date, events: JobEvent[]) {
+async function sameDay(db: Db, site: Site, now: Date, events: JobEvent[]) {
   const today = siteLocalDate(now, site.timezone);
   if (!isWorkingDay(today, site.settings.workingDays)) return;
   const slot = currentSameDaySlot(site, now);
   if (!slot) return;
-  sameDayRun(db, site, today, `same-day:${site.id}:${today}:${slot}`, now, events);
+  await sameDayRun(db, site, today, `same-day:${site.id}:${today}:${slot}`, now, events);
 }
 
 /** After an offer is declined or expires, offer the bay to the next person at once. */
-export function reofferAfter(
+export async function reofferAfter(
   db: Db,
   siteId: string,
   date: IsoDate,
   offerId: string,
   now: Date,
-): JobEvent[] {
-  return sameDayNow(db, siteId, date, `after-offer:${offerId}`, now);
+): Promise<JobEvent[]> {
+  return await sameDayNow(db, siteId, date, `after-offer:${offerId}`, now);
 }
 
 /**
  * Run a same-day round for `date` straight away when it is today and within same-day
  * hours (a bay was just freed). `trigger` makes the job key unique per cause.
  */
-export function sameDayNow(
+export async function sameDayNow(
   db: Db,
   siteId: string,
   date: IsoDate,
   trigger: string,
   now: Date,
-): JobEvent[] {
-  const site = loadJobSite(db, siteId);
+): Promise<JobEvent[]> {
+  const site = await loadJobSite(db, siteId);
   const events: JobEvent[] = [];
   if (date !== siteLocalDate(now, site.timezone) || !currentSameDaySlot(site, now)) return events;
-  sameDayRun(db, site, date, `same-day:${siteId}:${date}:${trigger}`, now, events);
+  await sameDayRun(db, site, date, `same-day:${siteId}:${date}:${trigger}`, now, events);
   return events;
 }
 
-function loadJobSite(db: Db, siteId: string): Site {
-  const row = db.select().from(sites).where(eq(sites.id, siteId)).get()!;
+async function loadJobSite(db: Db, siteId: string): Promise<Site> {
+  const row = (await db.select().from(sites).where(eq(sites.id, siteId)).get())!;
   return { id: row.id, timezone: row.timezone, settings: parseSiteSettings(row.settingsJson) };
 }
 
-function summarise(outcome: ReturnType<typeof runRound>) {
+function summarise(outcome: Awaited<ReturnType<typeof runRound>>) {
   return outcome.status === 'skipped'
     ? outcome
     : {
@@ -169,27 +185,27 @@ function summarise(outcome: ReturnType<typeof runRound>) {
       };
 }
 
-export function roundJobs(db: Db, now: Date): JobEvent[] {
+export async function roundJobs(db: Db, now: Date): Promise<JobEvent[]> {
   const events: JobEvent[] = [];
-  for (const row of db.select().from(sites).all()) {
+  for (const row of await db.select().from(sites).all()) {
     const site: Site = {
       id: row.id,
       timezone: row.timezone,
       settings: parseSiteSettings(row.settingsJson),
     };
-    deadlines(db, site, now, events);
-    weekly(db, site, now, events);
-    daily(db, site, now, events);
-    sameDay(db, site, now, events);
+    await deadlines(db, site, now, events);
+    await weekly(db, site, now, events);
+    await daily(db, site, now, events);
+    await sameDay(db, site, now, events);
   }
   // FR-22: release unclaimed bays, then offer them straight away (same-day pool).
-  for (const r of autoRelease(db, now)) {
+  for (const r of await autoRelease(db, now)) {
     events.push({ job: 'auto-release', siteId: r.siteId, detail: r });
-    events.push(...sameDayNow(db, r.siteId, r.date, `after-release:${r.bookingId}`, now));
+    events.push(...(await sameDayNow(db, r.siteId, r.date, `after-release:${r.bookingId}`, now)));
   }
-  for (const freed of expireOffers(db, now)) {
+  for (const freed of await expireOffers(db, now)) {
     events.push({ job: 'offer-expiry', siteId: freed.siteId, detail: freed });
-    events.push(...reofferAfter(db, freed.siteId, freed.date, freed.offerId, now));
+    events.push(...(await reofferAfter(db, freed.siteId, freed.date, freed.offerId, now)));
   }
   return events;
 }

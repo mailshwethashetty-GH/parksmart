@@ -17,24 +17,33 @@ export type SetupOptions = {
   timezone?: string;
 };
 
-export function setupOrganisation(
+export async function setupOrganisation(
   db: Db,
   opts: SetupOptions,
   now = new Date(),
-): { created: false } | { created: true; orgId: string; siteId: string } {
-  if (isSeeded(db)) return { created: false };
-  return db.transaction((tx) => {
+): Promise<{ created: false } | { created: true; orgId: string; siteId: string }> {
+  if (await isSeeded(db)) return { created: false };
+  return await db.transaction(async (tx) => {
     const orgId = createId();
     const siteId = createId();
     const timezone = opts.timezone ?? DEFAULT_TIMEZONE;
-    tx.insert(s.orgs)
+    await tx
+      .insert(s.orgs)
       .values({ id: orgId, name: opts.orgName, emailDomain: opts.emailDomain.toLowerCase() })
       .run();
-    tx.insert(s.sites)
+    await tx
+      .insert(s.sites)
       .values({ id: siteId, orgId, name: opts.siteName, timezone, aiStage: 1, settingsJson: {} })
       .run();
-    const versionId = insertDefaultPolicy(tx, { orgId, siteId, publishedBy: null, now, timezone });
-    tx.insert(s.auditLog)
+    const versionId = await insertDefaultPolicy(tx, {
+      orgId,
+      siteId,
+      publishedBy: null,
+      now,
+      timezone,
+    });
+    await tx
+      .insert(s.auditLog)
       .values({
         siteId,
         actorId: null,

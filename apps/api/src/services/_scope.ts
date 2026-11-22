@@ -14,14 +14,30 @@ export function assertInSite<T extends { siteId: string }>(
   return row;
 }
 
+/** A UNIQUE constraint failure, from libSQL directly or wrapped by Drizzle (`cause`). */
 export function isUniqueViolation(err: unknown): boolean {
-  return (err as { code?: string } | null)?.code === 'SQLITE_CONSTRAINT_UNIQUE';
+  for (
+    let e = err as {
+      code?: string;
+      extendedCode?: string;
+      message?: string;
+      cause?: unknown;
+    } | null;
+    e;
+    e = e.cause as typeof e
+  ) {
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || e.extendedCode === 'SQLITE_CONSTRAINT_UNIQUE')
+      return true;
+    if (e.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint failed/.test(e.message ?? ''))
+      return true;
+  }
+  return false;
 }
 
 /** Run `fn`, turning a UNIQUE violation into a 409 with `message`. */
-export function withUniqueConflict<T>(fn: () => T, message: string): T {
+export async function withUniqueConflict<T>(fn: () => T, message: string): Promise<Awaited<T>> {
   try {
-    return fn();
+    return await fn();
   } catch (err) {
     if (isUniqueViolation(err)) throw conflict(message);
     throw err;

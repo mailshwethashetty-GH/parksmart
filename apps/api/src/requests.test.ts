@@ -20,7 +20,7 @@ beforeEach(async () => {
   divya = await clientFor(ctx.app, 'divya@parksmart.test');
   arjun = await clientFor(ctx.app, 'arjun@parksmart.test');
 });
-afterEach(async () => ctx.app.close());
+afterEach(async () => await ctx.app.close());
 
 const car = (dates: string[], extra: Record<string, unknown> = {}) => ({
   dates,
@@ -28,14 +28,11 @@ const car = (dates: string[], extra: Record<string, unknown> = {}) => ({
   arrivalWindow: 'before_9',
   ...extra,
 });
-const activeFor = (email: string) => {
-  const user = ctx.db.select().from(users).where(eq(users.email, email)).get()!;
-  return ctx.db
-    .select()
-    .from(requests)
-    .where(eq(requests.userId, user.id))
-    .all()
-    .filter((r) => ['requested', 'allocated', 'waitlisted'].includes(r.status));
+const activeFor = async (email: string) => {
+  const user = (await ctx.db.select().from(users).where(eq(users.email, email)).get())!;
+  return (await ctx.db.select().from(requests).where(eq(requests.userId, user.id)).all()).filter(
+    (r) => ['requested', 'allocated', 'waitlisted'].includes(r.status),
+  );
 };
 
 describe('making requests (FR-1)', () => {
@@ -79,7 +76,7 @@ describe('making requests (FR-1)', () => {
     });
     expect(second.body.items[0].id).toBe(first.body.items[0].id);
     expect(second.body.items[0]).toMatchObject({ bayType: 'ev', allowFallback: false });
-    expect(activeFor('divya@parksmart.test')).toHaveLength(1);
+    expect(await activeFor('divya@parksmart.test')).toHaveLength(1);
   });
 
   it('is all-or-nothing: one closed date rejects the whole request', async () => {
@@ -89,7 +86,7 @@ describe('making requests (FR-1)', () => {
       expect.objectContaining({ date: '2026-11-28', code: 'NOT_WORKING_DAY' }),
       expect.objectContaining({ date: '2026-11-24', code: 'PAST_DATE' }),
     ]);
-    expect(activeFor('divya@parksmart.test')).toHaveLength(0);
+    expect(await activeFor('divya@parksmart.test')).toHaveLength(0);
   });
 
   it('rejects dates beyond the booking horizon and after the last same-day round', async () => {
@@ -119,11 +116,11 @@ describe('eligibility at request time', () => {
         .code,
     ).toBe('ACCESSIBLE_NOT_APPROVED');
     const admin = await clientFor(ctx.app, 'admin@parksmart.test');
-    const priyaId = ctx.db
+    const priyaId = (await ctx.db
       .select()
       .from(users)
       .where(eq(users.email, 'priya@parksmart.test'))
-      .get()!.id;
+      .get())!.id;
     await admin.post('/admin/approvals', { userId: priyaId, expiresOn: '2026-12-01' });
     expect(
       (await priya.post('/requests', { ...car(['2026-11-30']), bayType: 'accessible' })).status,
@@ -178,7 +175,7 @@ describe('changing and withdrawing (FR-4)', () => {
 
   it('cannot replace a request that already has a bay', async () => {
     const { id } = (await divya.post('/requests', car(['2026-12-02']))).body.items[0];
-    ctx.db.update(requests).set({ status: 'allocated' }).where(eq(requests.id, id)).run();
+    await ctx.db.update(requests).set({ status: 'allocated' }).where(eq(requests.id, id)).run();
     const res = await divya.post('/requests', car(['2026-12-02']));
     expect(res.body.error.code).toBe('ALREADY_DECIDED');
     expect((await divya.delete(`/requests/${id}`)).status).toBe(409);
@@ -213,19 +210,19 @@ describe('calendar', () => {
 
 describe('recurring patterns (FR-3)', () => {
   const pattern = { weekdays: [2, 4], bayType: 'car', arrivalWindow: 'before_9' };
-  const statusOn = (date: string) =>
-    activeFor('divya@parksmart.test').find((r) => r.date === date) ?? null;
+  const statusOn = async (date: string) =>
+    (await activeFor('divya@parksmart.test')).find((r) => r.date === date) ?? null;
 
   it('feeds the next weekly round: creates requests for that week', async () => {
     const res = await divya.post('/recurring-patterns', pattern);
     expect(res.status).toBe(201);
-    expect(statusOn('2026-12-01')).toMatchObject({
+    expect(await statusOn('2026-12-01')).toMatchObject({
       status: 'requested',
       recurringPatternId: res.body.id,
     });
-    expect(statusOn('2026-12-03')).toMatchObject({ status: 'requested' });
+    expect(await statusOn('2026-12-03')).toMatchObject({ status: 'requested' });
     // This week's weekly round has already run, so nothing is created for it.
-    expect(statusOn('2026-11-26')).toBeNull();
+    expect(await statusOn('2026-11-26')).toBeNull();
     expect(
       res.body.upcoming.find((u: { date: string }) => u.date === '2026-12-01').requestStatus,
     ).toBe('requested');
@@ -239,7 +236,7 @@ describe('recurring patterns (FR-3)', () => {
       await divya.post('/requests', { ...car(['2026-12-01']), arrivalWindow: 'after_13' })
     ).body.items[0];
     await divya.post('/recurring-patterns', pattern);
-    expect(statusOn('2026-12-01')).toMatchObject({ id: manual.id, recurringPatternId: null });
+    expect(await statusOn('2026-12-01')).toMatchObject({ id: manual.id, recurringPatternId: null });
   });
 
   it('refuses overlapping patterns and non-working days', async () => {
@@ -261,23 +258,23 @@ describe('recurring patterns (FR-3)', () => {
       skipped: true,
       requestStatus: null,
     });
-    expect(statusOn('2026-12-03')).toBeNull();
+    expect(await statusOn('2026-12-03')).toBeNull();
     await divya.delete(`/recurring-patterns/${id}/skips/2026-12-03`);
-    expect(statusOn('2026-12-03')).toMatchObject({ status: 'requested' });
+    expect(await statusOn('2026-12-03')).toMatchObject({ status: 'requested' });
   });
 
   it('withdrawing a pattern request counts as a skip, so edits do not bring it back', async () => {
     const { id } = (await divya.post('/recurring-patterns', pattern)).body;
-    await divya.delete(`/requests/${statusOn('2026-12-01')!.id}`);
+    await divya.delete(`/requests/${(await statusOn('2026-12-01'))!.id}`);
     await divya.patch(`/recurring-patterns/${id}`, { arrivalWindow: '9_to_11' });
-    expect(statusOn('2026-12-01')).toBeNull();
-    expect(statusOn('2026-12-03')).toMatchObject({ arrivalWindow: '9_to_11' });
+    expect(await statusOn('2026-12-01')).toBeNull();
+    expect(await statusOn('2026-12-03')).toMatchObject({ arrivalWindow: '9_to_11' });
   });
 
   it('deactivating a pattern withdraws its undecided requests', async () => {
     const { id } = (await divya.post('/recurring-patterns', pattern)).body;
     await divya.patch(`/recurring-patterns/${id}`, { active: false });
-    expect(activeFor('divya@parksmart.test')).toHaveLength(0);
+    expect(await activeFor('divya@parksmart.test')).toHaveLength(0);
   });
 });
 
@@ -289,24 +286,24 @@ describe('recurring-expand job', () => {
       arrivalWindow: 'before_9',
     });
     // Pattern creation already fed Mon 30 Nov; the job claims the week and adds nothing new.
-    const first = recurringExpandJob(ctx.db, now);
+    const first = await recurringExpandJob(ctx.db, now);
     expect(first[0]).toMatchObject({ week: '2026-11-30', created: 0 });
-    expect(recurringExpandJob(ctx.db, now)[0]).toMatchObject({ created: null }); // already ran
+    expect((await recurringExpandJob(ctx.db, now))[0]).toMatchObject({ created: null }); // already ran
 
     now = ist('2026-11-27T12:15'); // after Friday's weekly round: next target week is 7 Dec
-    expect(recurringExpandJob(ctx.db, now)[0]).toMatchObject({ week: '2026-12-07', created: 1 });
-    const keys = ctx.db
-      .select()
-      .from(jobRuns)
-      .all()
-      .map((j) => [j.jobKey.split(':').at(-1), j.status]);
+    expect((await recurringExpandJob(ctx.db, now))[0]).toMatchObject({
+      week: '2026-12-07',
+      created: 1,
+    });
+    const keys = (await ctx.db.select().from(jobRuns).all()).map((j) => [
+      j.jobKey.split(':').at(-1),
+      j.status,
+    ]);
     expect(keys).toEqual([
       ['2026-11-30', 'succeeded'],
       ['2026-12-07', 'succeeded'],
     ]);
-    const mondays = activeFor('divya@parksmart.test')
-      .map((r) => r.date)
-      .sort();
+    const mondays = (await activeFor('divya@parksmart.test')).map((r) => r.date).sort();
     expect(mondays).toEqual(['2026-11-30', '2026-12-07']);
   });
 
@@ -318,7 +315,7 @@ describe('recurring-expand job', () => {
     });
     expect(res.body.error.code).toBe('NOT_EV');
     expect(
-      ctx.db
+      await ctx.db
         .select()
         .from(requests)
         .where(and(eq(requests.bayType, 'ev')))

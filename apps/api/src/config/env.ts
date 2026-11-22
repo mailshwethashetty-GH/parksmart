@@ -13,6 +13,20 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   APP_URL: z.url().default('http://localhost:5173'),
   DATABASE_PATH: z.string().default('./data/parksmart.db'),
+  // Turso (ADR-016): when set, used instead of the local DATABASE_PATH file.
+  DATABASE_URL: optionalString,
+  DATABASE_AUTH_TOKEN: optionalString,
+  // Scheduled jobs: Croner inside the server, or an outside caller of /api/v1/cron/tick
+  // with `Authorization: Bearer <CRON_SECRET>` (serverless hosting, e.g. Vercel).
+  CRON_SECRET: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    secret.optional(),
+  ),
+  // Prototype demo (ADR-017): sample people can sign in without SSO. Off by default.
+  DEMO_MODE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['true', 'false']).optional()),
+  // Comma-separated: people outside the org's email domain who may sign in with SSO
+  // (e.g. reviewers' Google accounts). They join the first site.
+  ALLOWED_EMAILS: optionalString,
   SESSION_SECRET: secret,
   QR_SIGNING_SECRET: secret,
   // An empty value (e.g. copied from .env.example) counts as unset.
@@ -56,6 +70,14 @@ export type SsoProvider = 'google' | 'entra';
 export type Env = z.infer<typeof envSchema> & {
   /** Resolved: dev login is only ever on outside production. */
   devLoginEnabled: boolean;
+  /** Demo personas may sign in (DEMO_MODE=true), in any environment. */
+  demoMode: boolean;
+  /** Running as a serverless function (Vercel): no in-process scheduler or SSE stream. */
+  serverless: boolean;
+  /** libSQL connection: Turso when DATABASE_URL is set, else the local file. */
+  db: { url: string; authToken?: string };
+  /** Lower-cased ALLOWED_EMAILS. */
+  allowedEmails: string[];
   /** The configured identity provider, if any. */
   ssoProvider: SsoProvider | null;
   /** Lower-cased INITIAL_ADMIN_EMAILS. */
@@ -99,11 +121,19 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env, repoRoot = proc
     throw new EnvError('DEV_LOGIN_ENABLED=true is not allowed when NODE_ENV=production.');
   }
   const ssoProvider = resolveSso(env);
-  if (env.NODE_ENV === 'production' && !ssoProvider) {
+  const demoMode = env.DEMO_MODE === 'true';
+  if (env.NODE_ENV === 'production' && !ssoProvider && !demoMode) {
     // SSO is the only way in (non-negotiable #6): without it nobody could sign in.
     throw new EnvError(
       'Production needs an identity provider: set SSO_GOOGLE_* or SSO_ENTRA_* and ORG_EMAIL_DOMAIN.',
     );
+  }
+  const serverless = source.VERCEL === '1';
+  if (serverless && !env.CRON_SECRET) {
+    throw new EnvError('CRON_SECRET is required on Vercel: scheduled jobs run via /cron/tick.');
+  }
+  if (serverless && !env.DATABASE_URL) {
+    throw new EnvError('DATABASE_URL (Turso) is required on Vercel: there is no local disk.');
   }
   if (
     (env.SETUP_ORG_NAME || env.SETUP_SITE_NAME) &&
@@ -113,18 +143,25 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env, repoRoot = proc
       'First-run setup needs SETUP_ORG_NAME, SETUP_SITE_NAME and ORG_EMAIL_DOMAIN.',
     );
   }
-  const databasePath =
-    env.DATABASE_PATH === ':memory:' || isAbsolute(env.DATABASE_PATH)
-      ? env.DATABASE_PATH
-      : resolve(repoRoot, env.DATABASE_PATH);
+  const databasePath = isAbsolute(env.DATABASE_PATH)
+    ? env.DATABASE_PATH
+    : resolve(repoRoot, env.DATABASE_PATH);
+  const list = (v: string | undefined) =>
+    (v ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
   return {
     ...env,
     DATABASE_PATH: databasePath,
     devLoginEnabled: env.NODE_ENV !== 'production' && env.DEV_LOGIN_ENABLED !== 'false',
+    demoMode,
+    serverless,
+    db: env.DATABASE_URL
+      ? { url: env.DATABASE_URL, authToken: env.DATABASE_AUTH_TOKEN }
+      : { url: `file:${databasePath}` },
+    allowedEmails: list(env.ALLOWED_EMAILS),
     ssoProvider,
-    initialAdminEmails: (env.INITIAL_ADMIN_EMAILS ?? '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
+    initialAdminEmails: list(env.INITIAL_ADMIN_EMAILS),
   };
 }

@@ -54,8 +54,12 @@ const AUTO_REASONS: Record<Exclude<PublishMode, 'admin'>, string> = {
 };
 
 /** Rounds awaiting review that cover `date`. Later rounds for that date must wait. */
-export function pendingRoundsCovering(db: Db, siteId: string, date: IsoDate): RoundRow[] {
-  return db
+export async function pendingRoundsCovering(
+  db: Db,
+  siteId: string,
+  date: IsoDate,
+): Promise<RoundRow[]> {
+  return await db
     .select()
     .from(rounds)
     .where(
@@ -69,14 +73,14 @@ export function pendingRoundsCovering(db: Db, siteId: string, date: IsoDate): Ro
     .all();
 }
 
-function approvalDeadline(
+async function approvalDeadline(
   db: Db,
   siteId: string,
   type: RoundType,
   dates: IsoDate[],
   now: Date,
-): Date | null {
-  const { settings, timezone } = loadSite(db, siteId);
+): Promise<Date | null> {
+  const { settings, timezone } = await loadSite(db, siteId);
   if (type === 'same_day') return null;
   if (type === 'weekly') {
     // Same calendar day as the run (the weekly round's own day).
@@ -92,9 +96,9 @@ function approvalDeadline(
  * so equal scores break the same way in every round for a date and waitlist positions stay
  * stable (only real score changes reorder people). Otherwise a fresh random seed.
  */
-export function seedFor(db: Db, siteId: string, dates: IsoDate[]): string {
+export async function seedFor(db: Db, siteId: string, dates: IsoDate[]): Promise<string> {
   const week = weekStart(dates[0]!);
-  const weeklyRound = db
+  const weeklyRound = await db
     .select({ seed: rounds.seed })
     .from(rounds)
     .where(
@@ -116,18 +120,21 @@ export type RunOutcome =
 /**
  * Run a round. Returns 'skipped' (and stores nothing) when there is nothing to allocate.
  */
-export function runRound(
+export async function runRound(
   db: Db,
   opts: { siteId: string; type: RoundType; dates: IsoDate[]; now: Date; seed?: string },
-): RunOutcome {
-  const seed = opts.seed ?? seedFor(db, opts.siteId, opts.dates);
-  return db.transaction(
-    (tx) => {
-      const { input, policyVersionId } = buildRoundInputs(tx as unknown as Db, { ...opts, seed });
+): Promise<RunOutcome> {
+  const seed = opts.seed ?? (await seedFor(db, opts.siteId, opts.dates));
+  return await db.transaction(
+    async (tx) => {
+      const { input, policyVersionId } = await buildRoundInputs(tx as unknown as Db, {
+        ...opts,
+        seed,
+      });
       if (input.requests.length === 0) return { status: 'skipped', reason: 'NO_REQUESTS' } as const;
       const result = allocate(input);
-      const site = loadSite(tx as unknown as Db, opts.siteId);
-      const round = tx
+      const site = await loadSite(tx as unknown as Db, opts.siteId);
+      const round = await tx
         .insert(rounds)
         .values({
           orgId: site.orgId,
@@ -139,7 +146,7 @@ export function runRound(
           seed,
           policyVersionId,
           runAt: opts.now,
-          approvalDeadline: approvalDeadline(
+          approvalDeadline: await approvalDeadline(
             tx as unknown as Db,
             opts.siteId,
             opts.type,
@@ -165,7 +172,8 @@ export function runRound(
           rankedCount: ranked.get(d.date) ?? 0,
           capMaxDays: cap ? Number(cap.config.maxDays) : null,
         });
-        tx.insert(allocations)
+        await tx
+          .insert(allocations)
           .values({
             roundId: round.id,
             requestId: d.requestId,
@@ -186,7 +194,7 @@ export function runRound(
           })
           .run();
       }
-      writeAudit(
+      await writeAudit(
         tx,
         {
           siteId: opts.siteId,
@@ -208,7 +216,7 @@ export function runRound(
         opts.now,
       );
       if (opts.type === 'same_day') {
-        publishInTx(tx, round, 'auto_same_day', null, opts.now);
+        await publishInTx(tx, round, 'auto_same_day', null, opts.now);
         return { status: 'published', roundId: round.id, result } as const;
       }
       return { status: 'pending_review', roundId: round.id, result } as const;
@@ -218,35 +226,35 @@ export function runRound(
 }
 
 /** Publish a pending round. `actorId` is the approving admin, or null for automatic modes. */
-export function publishRound(
+export async function publishRound(
   db: Db,
   roundId: string,
   mode: PublishMode,
   actorId: string | null,
   now: Date,
   reason?: string,
-): void {
-  db.transaction(
-    (tx) => {
-      const round = tx.select().from(rounds).where(eq(rounds.id, roundId)).get();
+): Promise<void> {
+  await db.transaction(
+    async (tx) => {
+      const round = await tx.select().from(rounds).where(eq(rounds.id, roundId)).get();
       if (!round) throw notFound('Round');
       if (round.status !== 'pending_review') throw conflict('This round is not awaiting review.');
-      publishInTx(tx, round, mode, actorId, now, reason);
+      await publishInTx(tx, round, mode, actorId, now, reason);
     },
     { behavior: 'immediate' },
   );
 }
 
-function publishInTx(
+async function publishInTx(
   tx: Tx,
   round: RoundRow,
   mode: PublishMode,
   actorId: string | null,
   now: Date,
   reason?: string,
-): void {
-  const site = loadSite(tx as unknown as Db, round.siteId);
-  const rows = tx
+): Promise<void> {
+  const site = await loadSite(tx as unknown as Db, round.siteId);
+  const rows = await tx
     .select({ allocation: allocations, request: requests })
     .from(allocations)
     .innerJoin(requests, eq(requests.id, allocations.requestId))
@@ -259,7 +267,7 @@ function publishInTx(
 
   // Recompute the waitlist for these requests from this round.
   const liveIds = live.map((r) => r.request.id);
-  if (liveIds.length) tx.delete(waitlist).where(inArray(waitlist.requestId, liveIds)).run();
+  if (liveIds.length) await tx.delete(waitlist).where(inArray(waitlist.requestId, liveIds)).run();
 
   const positions = new Map<string, number>();
   const ordered = [...live].sort(
@@ -270,27 +278,34 @@ function publishInTx(
   const counts = { confirmed: 0, offered: 0, waitlisted: 0, ineligible: 0 };
   // FR-25: tell people about changes only (no repeat "still waitlisted" every round).
   const bayCodes = new Map(
-    tx
-      .select({ id: bays.id, code: bays.code })
-      .from(bays)
-      .where(eq(bays.siteId, round.siteId))
-      .all()
-      .map((b) => [b.id, b.code]),
+    (
+      await tx
+        .select({ id: bays.id, code: bays.code })
+        .from(bays)
+        .where(eq(bays.siteId, round.siteId))
+        .all()
+    ).map((b) => [b.id, b.code]),
   );
-  const tell = (
+  const tell = async (
     r: (typeof ordered)[number]['request'],
     kind: 'round_result' | 'offer',
     payload: Record<string, unknown>,
   ) =>
-    queueNotification(tx, { userId: r.userId, kind, payload: { date: r.date, ...payload }, now });
+    await queueNotification(tx, {
+      userId: r.userId,
+      kind,
+      payload: { date: r.date, ...payload },
+      now,
+    });
 
   for (const { allocation: a, request: r } of ordered) {
     if (a.outcome === 'ineligible') {
-      tx.update(requests).set({ status: 'expired' }).where(eq(requests.id, r.id)).run();
-      tell(r, 'round_result', { outcome: 'ineligible', reason: a.reasonText });
+      await tx.update(requests).set({ status: 'expired' }).where(eq(requests.id, r.id)).run();
+      await tell(r, 'round_result', { outcome: 'ineligible', reason: a.reasonText });
       counts.ineligible++;
     } else if (a.outcome === 'confirmed' && round.roundType !== 'same_day') {
-      tx.insert(bookings)
+      await tx
+        .insert(bookings)
         .values({
           orgId: r.orgId,
           siteId: r.siteId,
@@ -302,8 +317,8 @@ function publishInTx(
           createdAt: now,
         })
         .run(); // UNIQUE(bay_id, date) on held bookings guards against over-booking.
-      tx.update(requests).set({ status: 'allocated' }).where(eq(requests.id, r.id)).run();
-      tell(r, 'round_result', {
+      await tx.update(requests).set({ status: 'allocated' }).where(eq(requests.id, r.id)).run();
+      await tell(r, 'round_result', {
         outcome: 'confirmed',
         bayCode: bayCodes.get(a.bayId!),
         reason: a.reasonText,
@@ -312,17 +327,22 @@ function publishInTx(
     } else if (a.outcome === 'confirmed') {
       // Same-day: an offer to accept within the site's window (FR-20).
       const expiresAt = new Date(now.getTime() + site.settings.offerWindowMinutes * 60_000);
-      tx.insert(offers)
+      await tx
+        .insert(offers)
         .values({ requestId: r.id, bayId: a.bayId!, expiresAt, status: 'open', createdAt: now })
         .run();
-      tell(r, 'offer', { bayCode: bayCodes.get(a.bayId!), expiresAt: expiresAt.toISOString() });
-      tx.update(requests).set({ status: 'waitlisted' }).where(eq(requests.id, r.id)).run();
+      await tell(r, 'offer', {
+        bayCode: bayCodes.get(a.bayId!),
+        expiresAt: expiresAt.toISOString(),
+      });
+      await tx.update(requests).set({ status: 'waitlisted' }).where(eq(requests.id, r.id)).run();
       counts.offered++;
     } else {
       const key = `${r.date}|${r.bayType}`;
       const position = (positions.get(key) ?? 0) + 1;
       positions.set(key, position);
-      tx.insert(waitlist)
+      await tx
+        .insert(waitlist)
         .values({
           siteId: r.siteId,
           date: r.date,
@@ -333,13 +353,14 @@ function publishInTx(
           createdAt: now,
         })
         .run();
-      tx.update(requests).set({ status: 'waitlisted' }).where(eq(requests.id, r.id)).run();
+      await tx.update(requests).set({ status: 'waitlisted' }).where(eq(requests.id, r.id)).run();
       if (r.status !== 'waitlisted')
-        tell(r, 'round_result', { outcome: 'waitlisted', reason: a.reasonText });
+        await tell(r, 'round_result', { outcome: 'waitlisted', reason: a.reasonText });
       counts.waitlisted++;
     }
   }
-  tx.update(rounds)
+  await tx
+    .update(rounds)
     .set({
       status: 'published',
       publishMode: mode,
@@ -349,7 +370,7 @@ function publishInTx(
     })
     .where(eq(rounds.id, round.id))
     .run();
-  writeAudit(
+  await writeAudit(
     tx,
     {
       siteId: round.siteId,

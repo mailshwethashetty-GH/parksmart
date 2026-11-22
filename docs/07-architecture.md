@@ -9,24 +9,26 @@ flowchart LR
       ADM[Admin console]
       SEC[Security gate view]
     end
-    subgraph Server["Docker container (Fastify)"]
+    subgraph Server["Fastify: Vercel function (prototype) or Docker container"]
       API[REST API + SSE]
       AUTH[Better Auth SSO]
       SVC[Services]
-      SCHED[Croner scheduler]
+      SCHED[Scheduler: Croner, or /cron/tick]
       ENG[packages/engine]
       NOTIF[Notification service]
       AI[AI service]
     end
-    DB[(SQLite<br/>data/parksmart.db)]
+    DB[(libSQL: Turso<br/>or data/parksmart.db)]
+    GHA[GitHub Actions<br/>every 5 min]
     IDP[Google / Entra IdP]
     CLAUDE[Claude API]
     MAIL[SMTP / SES]
-    S3[(S3 backup<br/>Litestream)]
+    S3[(S3 backup<br/>Litestream, Docker only)]
 
     EMP & ADM & SEC --> API
     API --> AUTH --> IDP
     API --> SVC
+    GHA -. GET /api/v1/cron/tick .-> SCHED
     SCHED --> SVC
     SVC --> ENG
     SVC --> DB
@@ -50,18 +52,23 @@ parksmart/
 │     └─ src/
 │        ├─ routes/        # thin HTTP handlers, one folder per resource
 │        ├─ services/      # business logic (rounds, bookings, policy…)
-│        ├─ jobs/          # croner scheduler, idempotent runOnce (job_runs), job functions
+│        ├─ jobs/          # runTick (one tick of all jobs), croner scheduler, idempotent runOnce (job_runs)
 │        ├─ ai/            # Claude client (AiClient), reason rewrites with fact checks
 │        ├─ notifications/
 │        ├─ auth/          # Better Auth config, SSO provider from env, dev-only login plugin
 │        ├─ config/        # env parsing and startup guards
 │        ├─ lib/           # AppError, mailer, monitoring (Sentry) and helpers
-│        └─ plugins/       # auth mount + role guard, security, errors, openapi, web-static
+│        ├─ plugins/       # auth mount + role guard, security, errors, openapi, web-static
+│        ├─ server.ts      # long-running server (dev, Docker): migrations, Croner, listen
+│        └─ vercel.ts      # Vercel function entry: one Fastify app per warm instance
 ├─ packages/
 │  ├─ engine/              # pure allocation engine + property tests
 │  ├─ db/                  # Drizzle schema, migrations, seed, db client
 │  └─ shared/              # Zod schemas, types, constants (bay types, roles)
 ├─ e2e/                    # Playwright: harness (fixed clock, test-only routes) + specs
+├─ scripts/vercel-build.mjs # Vercel Build Output API: static web + bundled API function
+├─ vercel.json             # Vercel project settings (build command, region bom1)
+├─ .github/workflows/      # ci.yml; tick.yml calls /api/v1/cron/tick every 5 min
 ├─ deploy/                 # docker-compose.yml, Caddyfile, litestream.yml, entrypoint
 ├─ Dockerfile              # one image: API + web + Litestream
 ├─ data/                   # parksmart.db (gitignored)
@@ -79,10 +86,12 @@ parksmart/
 - `packages/shared` imports nothing from other packages.
 - The web app talks to the API only, through the typed client in `apps/web/src/lib/api`.
 - Apps import Drizzle query helpers from `@parksmart/db` (which re-exports them), never from `drizzle-orm` directly: a second copy of drizzle-orm (it appeared when the Anthropic SDK added an optional peer) makes columns and operators incompatible. ESLint enforces this.
-- After each job tick, `jobs/after-jobs.ts` notifies affected employees (SSE) and starts AI reason rewrites outside the round transaction.
+- After each job tick, `jobs/after-jobs.ts` notifies affected employees (SSE) and starts AI reason rewrites outside the round transaction (awaited on Vercel, where a function is frozen once it responds).
+- `jobs/tick.ts` (`runTick`) is the one place that runs the jobs in order: rounds → notifications and email → recurring requests. Croner calls its parts on a long-running server; `GET /api/v1/cron/tick` (bearer `CRON_SECRET`) calls it on Vercel (ADR-016).
 - A separate `notifications` cron (every minute) queues release warnings, approval reminders and the daily `audit-retention` purge (12 months), then sends pending emails. Emails go through one outbox (`notifications` rows) that applies the 3/day cap and quiet hours; time-critical kinds (offer, release warning, approval reminder) are exempt but dropped as `stale` after 30 min. Every notice is also in the in-app inbox.
 - On start, after migrations, an empty database gets its org, pilot site and default policy from `SETUP_ORG_NAME`, `SETUP_SITE_NAME` and `ORG_EMAIL_DOMAIN` (never again once an org exists). Production refuses to start without an identity provider (ADR-014).
-- Deployment: one container (`Dockerfile`) behind Caddy (`deploy/`). With `LITESTREAM_REPLICA_URL` set, the entrypoint restores an empty volume from the replica and runs the app under `litestream replicate`. Only one app container may use the database file.
+- Deployment (prototype, ADR-016): Vercel serves `.vercel/output` from `scripts/vercel-build.mjs`: static web app plus one API function; Turso holds the data; GitHub Actions ticks the scheduler. Migrations are applied with `pnpm db:migrate` before deploying, never at function start.
+- Deployment (alternative): one container (`Dockerfile`) behind Caddy (`deploy/`). With `LITESTREAM_REPLICA_URL` set, the entrypoint restores an empty volume from the replica and runs the app under `litestream replicate`. Only one app container may use the database file.
 - End-to-end tests (`e2e/`) run the real API with a clock the test moves and the production web build on one origin. Test-only routes (`/__e2e/*`) live in the harness, never in `apps/api`.
 - These rules are enforced by ESLint (`no-restricted-imports` etc. in `eslint.config.js`): the engine cannot import I/O modules or use `Math.random`/`Date.now`/`new Date()`, and `apps/api/src/routes` cannot import `@parksmart/db` or `drizzle-orm`.
 - Every route declares its roles with the `requireRole(...)` preHandler, which sets `request.actor` (id, org, site, role). Services take the actor's site for scoping.
@@ -103,8 +112,9 @@ At Stage 3, step 5 is skipped. At Stage 2, only flagged exceptions need review. 
 
 Cancel or auto-release → booking `cancelled` / `auto_released` → bay added to the same-day pool → next `same-day-round` offers it to the waitlist → offer expires in 10 min → next person.
 
-## Concurrency with SQLite
+## Concurrency with SQLite / libSQL
 
-- One app instance only. All writes go through the single `better-sqlite3` connection.
+- Database calls are async (libSQL). Requests can interleave between `await`s, so correctness never relies on "nothing else runs in between": the constraints (`UNIQUE(bay_id, date)` on held bookings, one active request per person and day, `job_runs` keys) enforce the invariants, and multi-step writes run in transactions.
+- Docker: one app instance. Vercel: several function instances may run at once against Turso, which serialises writes.
 - Rounds use `BEGIN IMMEDIATE` so nothing else writes mid-allocation.
 - Jobs are idempotent via `job_runs` unique keys, so a restart never double-runs a round.

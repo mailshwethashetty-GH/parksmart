@@ -1,14 +1,14 @@
 import { createDb, runMigrations } from '../client';
 import { isSeeded, seed } from '../seed';
-import { databasePathFromEnv } from './env';
+import { dbConfigFromEnv } from './env';
 
-const path = databasePathFromEnv();
-const db = createDb(path);
-runMigrations(db);
-if (isSeeded(db)) {
-  console.log(`${path} already has data. Delete the file to reseed.`);
+const config = dbConfigFromEnv();
+const db = await createDb(config);
+await runMigrations(db);
+if (await isSeeded(db)) {
+  console.log(`${config.label} already has data. Delete it to reseed.`);
 } else {
-  const { siteId } = seed(db);
-  console.log(`Seeded ${path} (site ${siteId}).`);
+  const { siteId } = await seed(db);
+  console.log(`Seeded ${config.label} (site ${siteId}).`);
 }
 db.$client.close();

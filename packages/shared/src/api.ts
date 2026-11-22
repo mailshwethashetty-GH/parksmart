@@ -58,3 +58,12 @@ export const devUserSchema = z.object({
 });
 export const devUsersResponseSchema = z.object({ items: z.array(devUserSchema) });
 export const devSignInBodySchema = z.object({ email: z.email() });
+
+/** Public: which sign-in methods this deployment offers (login screen). */
+export const loginOptionsResponseSchema = z.object({
+  /** The configured identity provider, if any. */
+  sso: z.enum(['google', 'entra']).nullable(),
+  /** `dev`: local development login. `demo`: prototype sample people (ADR-017). */
+  samplePeople: z.enum(['dev', 'demo']).nullable(),
+});
+export type LoginOptions = z.infer<typeof loginOptionsResponseSchema>;

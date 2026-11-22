@@ -48,7 +48,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, querystring: requestsQuerySchema, response: { 200: requestsResponseSchema } },
     },
     async (req) => ({
-      items: listRequests(app.db, actorOf(req), app.clock(), req.query.from, req.query.to),
+      items: await listRequests(app.db, actorOf(req), app.clock(), req.query.from, req.query.to),
     }),
   );
   app.get(
@@ -56,7 +56,8 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: { tags, querystring: calendarQuerySchema, response: { 200: calendarResponseSchema } },
     },
-    async (req) => getCalendar(app.db, actorOf(req), app.clock(), req.query.from, req.query.days),
+    async (req) =>
+      await getCalendar(app.db, actorOf(req), app.clock(), req.query.from, req.query.days),
   );
   app.post(
     '/requests',
@@ -64,7 +65,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) =>
       reply
         .status(201)
-        .send({ items: createRequests(app.db, actorOf(req), req.body, app.clock()) }),
+        .send({ items: await createRequests(app.db, actorOf(req), req.body, app.clock()) }),
   );
   app.patch(
     '/requests/:id',
@@ -76,7 +77,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: requestSchema },
       },
     },
-    async (req) => updateRequest(app.db, actorOf(req), req.params.id, req.body, app.clock()),
+    async (req) => await updateRequest(app.db, actorOf(req), req.params.id, req.body, app.clock()),
   );
   app.delete(
     '/requests/:id',
@@ -84,10 +85,13 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const actor = actorOf(req);
       const now = app.clock();
-      const { request, releasedOfferId } = withdrawRequest(app.db, actor, req.params.id, now);
+      const { request, releasedOfferId } = await withdrawRequest(app.db, actor, req.params.id, now);
       app.events.notifyUsers([actor.id]);
       if (releasedOfferId) {
-        afterJobs(app, reofferAfter(app.db, actor.siteId, request.date, releasedOfferId, now));
+        await afterJobs(
+          app,
+          await reofferAfter(app.db, actor.siteId, request.date, releasedOfferId, now),
+        );
       }
       return request;
     },
@@ -96,7 +100,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/recurring-patterns',
     { schema: { tags, response: { 200: recurringPatternsResponseSchema } } },
-    async (req) => ({ items: listPatterns(app.db, actorOf(req), app.clock()) }),
+    async (req) => ({ items: await listPatterns(app.db, actorOf(req), app.clock()) }),
   );
   app.post(
     '/recurring-patterns',
@@ -108,7 +112,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req, reply) =>
-      reply.status(201).send(createPattern(app.db, actorOf(req), req.body, app.clock())),
+      reply.status(201).send(await createPattern(app.db, actorOf(req), req.body, app.clock())),
   );
   app.patch(
     '/recurring-patterns/:id',
@@ -120,7 +124,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: recurringPatternSchema },
       },
     },
-    async (req) => updatePattern(app.db, actorOf(req), req.params.id, req.body, app.clock()),
+    async (req) => await updatePattern(app.db, actorOf(req), req.params.id, req.body, app.clock()),
   );
   app.post(
     '/recurring-patterns/:id/skips',
@@ -132,12 +136,13 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: recurringPatternSchema },
       },
     },
-    async (req) => skipDate(app.db, actorOf(req), req.params.id, req.body.date, app.clock()),
+    async (req) => await skipDate(app.db, actorOf(req), req.params.id, req.body.date, app.clock()),
   );
   app.delete(
     '/recurring-patterns/:id/skips/:date',
     { schema: { tags, params: skipParamsSchema, response: { 200: recurringPatternSchema } } },
-    async (req) => unskipDate(app.db, actorOf(req), req.params.id, req.params.date, app.clock()),
+    async (req) =>
+      await unskipDate(app.db, actorOf(req), req.params.id, req.params.date, app.clock()),
   );
 
   // Same-day offers (FR-20): accept within the window, or decline to pass it on.
@@ -145,7 +150,7 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     '/offers/:id/accept',
     { schema: { tags, params: idParamsSchema, response: { 200: offerAcceptResponseSchema } } },
     async (req) => {
-      const result = acceptOffer(app.db, actorOf(req), req.params.id, app.clock());
+      const result = await acceptOffer(app.db, actorOf(req), req.params.id, app.clock());
       app.events.notifyUsers([actorOf(req).id]);
       return result;
     },
@@ -155,9 +160,9 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     { schema: { tags, params: idParamsSchema, response: { 200: okResponseSchema } } },
     async (req) => {
       const now = app.clock();
-      const { siteId, date } = declineOffer(app.db, actorOf(req), req.params.id, now);
+      const { siteId, date } = await declineOffer(app.db, actorOf(req), req.params.id, now);
       app.events.notifyUsers([actorOf(req).id]);
-      afterJobs(app, reofferAfter(app.db, siteId, date, req.params.id, now));
+      await afterJobs(app, await reofferAfter(app.db, siteId, date, req.params.id, now));
       return { ok: true as const };
     },
   );

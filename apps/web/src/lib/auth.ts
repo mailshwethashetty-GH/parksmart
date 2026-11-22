@@ -1,4 +1,8 @@
-import { devUsersResponseSchema, meResponseSchema } from '@parksmart/shared';
+import {
+  devUsersResponseSchema,
+  loginOptionsResponseSchema,
+  meResponseSchema,
+} from '@parksmart/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { api, ApiError } from './api';
@@ -21,7 +25,16 @@ export function useMe() {
   });
 }
 
-/** Seeded users for the dev-only login. Fails (404) when the server has dev login off. */
+/** Which sign-in methods this deployment offers. */
+export function useLoginOptions() {
+  return useQuery({
+    queryKey: ['login-options'],
+    queryFn: () => api.get('/login-options', loginOptionsResponseSchema),
+    staleTime: Infinity,
+  });
+}
+
+/** Sample people (dev login or prototype demo). Fails (404) when the server has it off. */
 export function useDevUsers(enabled: boolean) {
   return useQuery({
     queryKey: ['dev-users'],
@@ -39,12 +52,12 @@ export function useDevSignIn() {
   });
 }
 
-/** Starts SSO with the identity provider registered for the email's domain. */
+/** Starts SSO with the deployment's identity provider. */
 export function useSsoSignIn() {
   return useMutation({
-    mutationFn: (email: string) =>
+    mutationFn: (providerId: 'google' | 'entra') =>
       api.post('/auth/sign-in/sso', z.object({ url: z.string() }), {
-        email,
+        providerId,
         callbackURL: '/',
       }),
     onSuccess: ({ url }) => window.location.assign(url),

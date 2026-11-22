@@ -35,8 +35,9 @@
 
 | Method | Path | Role | FR |
 | --- | --- | --- | --- |
-| GET/POST | `/auth/*` | public | FR-29 (Better Auth routes, incl. `POST /auth/sign-in/sso` and `/auth/sign-out`) |
-| GET · POST | `/auth/dev/users` · `/auth/dev/sign-in` | public, **dev only** | Seeded-user login. Not registered in production (non-negotiable #6) |
+| GET/POST | `/auth/*` | public | FR-29 (Better Auth routes, incl. `POST /auth/sign-in/sso` `{ providerId, callbackURL }` and `/auth/sign-out`) |
+| GET · POST | `/auth/dev/users` · `/auth/dev/sign-in` | public, **dev or demo only** | Seeded-user login. Not registered in production (non-negotiable #6), except with `DEMO_MODE=true`, where it lists and signs in only the sample `@parksmart.test` people (ADR-017) |
+| GET | `/login-options` | public | `{ sso: 'google' \| 'entra' \| null, samplePeople: 'dev' \| 'demo' \| null }` for the login screen |
 | GET | `/csrf-token` | public | Returns `{ token }` and sets the signed CSRF secret cookie |
 | GET | `/me` | any | |
 | GET/PATCH | `/me/profile` (distance band, vehicles, consents with their text, `requirePlate`) | employee, admin | |
@@ -60,7 +61,7 @@
 | POST | `/bookings/:id/cancel` `{ reason? }` (own, confirmed only; audited; freed today → same-day round at once) | employee, admin | FR-4 |
 | POST | `/bookings/:id/running-late` (once a week, before the deadline; returns the new `checkInBy`) | employee, admin | FR-22 |
 | GET | `/bookings/:id/qr` (signed token valid only on the booking's day) · POST `/checkins/bay` `{ token }` (bay sticker) | employee, admin | FR-21 |
-| SSE | `/stream/me` (`event: requests` when your requests change; heartbeat every 25 s). Waitlist position is on `GET /requests` | employee, admin | FR-20 |
+| SSE | `/stream/me` (`event: requests` when your requests change; heartbeat every 25 s). On Vercel it answers 204 and the app polls every 30 s (ADR-016). Waitlist position is on `GET /requests` | employee, admin | FR-20 |
 | POST | `/offers/:id/accept` · `/offers/:id/decline` (decline re-offers the bay at once) | employee, admin | FR-20 |
 | POST | `/appeals` | employee | FR-31 |
 | GET | `/policy/current` | any role | FR-12 |
@@ -107,4 +108,5 @@
 | Method | Path | Role |
 | --- | --- | --- |
 | GET | `/health` | public |
+| GET | `/cron/tick` | `Authorization: Bearer <CRON_SECRET>` (401 otherwise; route absent without `CRON_SECRET`). Runs all due jobs; returns `{ rounds, notifications, recurring }` each `{ ok, ran }` (ADR-016) |
 | GET | `/docs` | admin (or dev only) |

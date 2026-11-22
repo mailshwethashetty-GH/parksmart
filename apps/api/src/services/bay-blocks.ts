@@ -18,48 +18,54 @@ import type { Actor } from '../types';
 import { assertInSite, iso } from './_scope';
 import { writeAudit } from './audit';
 
-export function listBayBlocks(db: Db, siteId: string, from?: string, to?: string): BayBlock[] {
+export async function listBayBlocks(
+  db: Db,
+  siteId: string,
+  from?: string,
+  to?: string,
+): Promise<BayBlock[]> {
   const conditions = [eq(bayBlocks.siteId, siteId), isNull(bayBlocks.deletedAt)];
   // Overlap with [from, to].
   if (from) conditions.push(gte(bayBlocks.dateTo, from));
   if (to) conditions.push(lte(bayBlocks.dateFrom, to));
-  return db
-    .select({ block: bayBlocks, bayCode: bays.code, zoneName: zones.name })
-    .from(bayBlocks)
-    .leftJoin(bays, eq(bays.id, bayBlocks.bayId))
-    .leftJoin(zones, eq(zones.id, bayBlocks.zoneId))
-    .where(and(...conditions))
-    .orderBy(asc(bayBlocks.dateFrom), asc(bays.code))
-    .all()
-    .map(({ block, bayCode, zoneName }) => ({
-      id: block.id,
-      bayId: block.bayId,
-      bayCode: bayCode ?? null,
-      zoneId: block.zoneId,
-      zoneName: zoneName ?? null,
-      dateFrom: block.dateFrom,
-      dateTo: block.dateTo,
-      reason: block.reason,
-      createdAt: iso(block.createdAt),
-    }));
+  return (
+    await db
+      .select({ block: bayBlocks, bayCode: bays.code, zoneName: zones.name })
+      .from(bayBlocks)
+      .leftJoin(bays, eq(bays.id, bayBlocks.bayId))
+      .leftJoin(zones, eq(zones.id, bayBlocks.zoneId))
+      .where(and(...conditions))
+      .orderBy(asc(bayBlocks.dateFrom), asc(bays.code))
+      .all()
+  ).map(({ block, bayCode, zoneName }) => ({
+    id: block.id,
+    bayId: block.bayId,
+    bayCode: bayCode ?? null,
+    zoneId: block.zoneId,
+    zoneName: zoneName ?? null,
+    dateFrom: block.dateFrom,
+    dateTo: block.dateTo,
+    reason: block.reason,
+    createdAt: iso(block.createdAt),
+  }));
 }
 
-export function createBayBlocks(
+export async function createBayBlocks(
   db: Db,
   actor: Actor,
   input: { bayIds?: string[]; zoneId?: string; dateFrom: string; dateTo: string; reason: string },
   now: Date,
-): BayBlock[] {
+): Promise<BayBlock[]> {
   if (input.zoneId) {
     assertInSite(
-      db.select().from(zones).where(eq(zones.id, input.zoneId)).get(),
+      await db.select().from(zones).where(eq(zones.id, input.zoneId)).get(),
       actor.siteId,
       'Zone',
     );
   }
   const bayIds = [...new Set(input.bayIds ?? [])];
   if (bayIds.length > 0) {
-    const found = db.select().from(bays).where(inArray(bays.id, bayIds)).all();
+    const found = await db.select().from(bays).where(inArray(bays.id, bayIds)).all();
     if (found.length !== bayIds.length) throw notFound('Bay');
     for (const b of found) assertInSite(b, actor.siteId, 'Bay');
   }
@@ -67,8 +73,8 @@ export function createBayBlocks(
     bayIds.length > 0
       ? bayIds.map((bayId) => ({ bayId, zoneId: null }))
       : [{ bayId: null, zoneId: input.zoneId! }];
-  const ids = db.transaction((tx) => {
-    const rows = tx
+  const ids = await db.transaction(async (tx) => {
+    const rows = await tx
       .insert(bayBlocks)
       .values(
         targets.map((t) => ({
@@ -84,7 +90,7 @@ export function createBayBlocks(
       )
       .returning({ id: bayBlocks.id })
       .all();
-    writeAudit(
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -99,12 +105,17 @@ export function createBayBlocks(
     );
     return new Set(rows.map((r) => r.id));
   });
-  return listBayBlocks(db, actor.siteId).filter((b) => ids.has(b.id));
+  return (await listBayBlocks(db, actor.siteId)).filter((b) => ids.has(b.id));
 }
 
-export function deleteBayBlock(db: Db, actor: Actor, blockId: string, now: Date): void {
+export async function deleteBayBlock(
+  db: Db,
+  actor: Actor,
+  blockId: string,
+  now: Date,
+): Promise<void> {
   const block = assertInSite(
-    db
+    await db
       .select()
       .from(bayBlocks)
       .where(and(eq(bayBlocks.id, blockId), isNull(bayBlocks.deletedAt)))
@@ -112,9 +123,9 @@ export function deleteBayBlock(db: Db, actor: Actor, blockId: string, now: Date)
     actor.siteId,
     'Bay block',
   );
-  db.transaction((tx) => {
-    tx.update(bayBlocks).set({ deletedAt: now }).where(eq(bayBlocks.id, blockId)).run();
-    writeAudit(
+  await db.transaction(async (tx) => {
+    await tx.update(bayBlocks).set({ deletedAt: now }).where(eq(bayBlocks.id, blockId)).run();
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,

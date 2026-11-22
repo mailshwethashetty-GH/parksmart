@@ -9,7 +9,6 @@ import { loadEnv } from './config/env';
 export const TEST_ENV = {
   NODE_ENV: 'test',
   APP_URL: 'http://localhost:5173',
-  DATABASE_PATH: ':memory:',
   SESSION_SECRET: 'test-session-secret-0123456789abcdefghij',
   QR_SIGNING_SECRET: 'test-qr-secret-0123456789abcdefghijklmn',
 } as const;
@@ -18,8 +17,8 @@ export async function createTestApp(
   envOverrides: Record<string, string> = {},
   opts: { clock?: () => Date; ai?: AiClient | null; mailer?: Mailer } = {},
 ) {
-  const db: Db = createTestDb();
-  seed(db, new Date('2026-11-22T04:00:00Z'));
+  const db: Db = await createTestDb();
+  await seed(db, new Date('2026-11-22T04:00:00Z'));
   const env = loadEnv({ ...TEST_ENV, ...envOverrides });
   // Tests never call the real Claude API: no client unless a fake is passed.
   const sent: Email[] = [];
@@ -94,10 +93,25 @@ export async function clientFor(app: App, email: string) {
   };
   return {
     cookie,
-    get: (url: string) => call('GET', url),
-    post: (url: string, payload: unknown = {}) => call('POST', url, payload),
-    put: (url: string, payload: unknown) => call('PUT', url, payload),
-    patch: (url: string, payload: unknown) => call('PATCH', url, payload),
-    delete: (url: string) => call('DELETE', url),
+    get: async (url: string) => await call('GET', url),
+    post: async (url: string, payload: unknown = {}) => await call('POST', url, payload),
+    put: async (url: string, payload: unknown) => await call('PUT', url, payload),
+    patch: async (url: string, payload: unknown) => await call('PATCH', url, payload),
+    delete: async (url: string) => await call('DELETE', url),
   };
+}
+
+/** Array helpers for async predicates (DB lookups are async with libSQL). */
+export async function filterAsync<T>(xs: readonly T[], fn: (x: T) => Promise<unknown>) {
+  const keep = await Promise.all(xs.map(fn));
+  return xs.filter((_, i) => keep[i]);
+}
+export async function findAsync<T>(xs: readonly T[], fn: (x: T) => Promise<unknown>) {
+  for (const x of xs) if (await fn(x)) return x;
+  return undefined;
+}
+export async function mapAsync<T, U>(xs: readonly T[], fn: (x: T) => Promise<U>) {
+  const out: U[] = [];
+  for (const x of xs) out.push(await fn(x));
+  return out;
 }

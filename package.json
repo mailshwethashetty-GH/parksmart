@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @parksmart/api --filter @parksmart/web dev",
+    "build:vercel": "node scripts/vercel-build.mjs",
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",

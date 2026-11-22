@@ -16,6 +16,22 @@ Record significant decisions with trade-offs here: anything someone might later 
 
 ---
 
+## ADR-017 — Prototype demo mode and allowlisted sign-in (exception to SSO-only)
+- Date: 2026-11-22
+- Status: Accepted
+- Context: ParkSmart is a capstone prototype with no company identity provider yet. Reviewers need to try every role (admin, security, employee) on the hosted site. Non-negotiable #6 allows only SSO in production, and the dev login is off there.
+- Decision: `DEMO_MODE=true` registers the sample-people login in any environment, limited to the seeded `@parksmart.test` people (list and sign-in both check the domain), so it can never open a real person's account. `DEV_LOGIN_ENABLED=true` is still refused in production. Real sign-in is Google OIDC through the existing SSO plugin; the login screen asks `GET /api/v1/login-options` which methods exist and starts SSO by provider id. `ALLOWED_EMAILS` lets named people from outside `ORG_EMAIL_DOMAIN` (e.g. reviewers' Gmail accounts) sign in; they join the first site.
+- Alternatives: Google sign-in only (rejected by the user: reviewers would each need allowlisting and role changes); demo logins only (rejected: no real sign-in to show).
+- Consequences: An explicit, documented exception to non-negotiable #6 for the prototype. Anyone with the URL can act as a sample person, so a demo deployment holds sample data only; turn `DEMO_MODE` off before any real pilot.
+
+## ADR-016 — Vercel + Turso hosting for the capstone prototype
+- Date: 2026-11-22
+- Status: Accepted (amends ADR-002, ADR-004 and ADR-005 for the hosted prototype; the Docker deployment stays as the alternative)
+- Context: The capstone requires hosting on Vercel (from GitHub) with a Turso database. Vercel runs short-lived functions with no persistent disk, no always-on process and (on the free plan) one cron run a day. ParkSmart used a SQLite file through the synchronous `better-sqlite3`, an in-process Croner scheduler, and SSE.
+- Decision: Use libSQL everywhere through `@libsql/client` and `drizzle-orm/libsql`: Turso when `DATABASE_URL` is set, a local file otherwise (dev, tests, Docker). Every database call became async (a type-driven codemod plus hand fixes; ESLint promise rules guard it). The API runs as one bundled Vercel function (Build Output API, `scripts/vercel-build.mjs`); the web app is static on Vercel's CDN. Scheduled jobs run through `GET /api/v1/cron/tick` (bearer `CRON_SECRET`), called every 5 minutes by GitHub Actions, with Vercel's daily cron as a backstop; Croner still drives a long-running server. On Vercel the SSE stream answers 204 and the app's 30 s polling keeps screens current. Migrations run with `pnpm db:migrate` before a deploy, not at function start.
+- Alternatives: Web on Vercel with the API on Fly.io or Railway (rejected: the requirement is Vercel + Turso); Postgres (Neon) (rejected: Turso keeps the SQLite dialect, schema and migrations unchanged); Turso embedded replicas with the synchronous API (rejected: no reliable disk on Vercel, unclear transaction behaviour); an external cron service (rejected by the user in favour of GitHub Actions).
+- Consequences: Deadlines (check-in release, offer expiry, round times) can run up to about 5 minutes late, more when GitHub delays scheduled workflows; jobs stay idempotent, so late or doubled ticks are safe. Requests can now interleave between `await`s; `UNIQUE(bay_id, date)` and the other constraints still enforce never over-booking (non-negotiable #1). Each statement is a network round trip to Turso, so the function and the database sit in the same region (Mumbai). In-memory rate limits and the event bus are per function instance.
+
 ## ADR-015 — Rate limit per signed-in session, not per IP
 - Date: 2026-11-22
 - Status: Accepted

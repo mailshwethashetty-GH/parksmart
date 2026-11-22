@@ -5,7 +5,6 @@ packages:
 
 # Dependencies allowed to run install/build scripts (native modules, bundlers).
 allowBuilds:
-  better-sqlite3: true
   esbuild: true
 
 minimumReleaseAgeExclude:

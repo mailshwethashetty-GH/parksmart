@@ -6,7 +6,14 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', '**/migrations/**', 'data/**', 'docs/**'],
+    ignores: [
+      '**/dist/**',
+      '.vercel/**',
+      '**/coverage/**',
+      '**/migrations/**',
+      'data/**',
+      'docs/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -25,6 +32,16 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.browser } },
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
+  },
+  // Database calls are async (libSQL, ADR-016): a forgotten `await` is a bug.
+  {
+    files: ['apps/api/src/**/*.ts', 'packages/db/src/**/*.ts'],
+    languageOptions: { parserOptions: { projectService: true } },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+    },
   },
   // Layering: packages/shared imports nothing from other workspace packages.
   {

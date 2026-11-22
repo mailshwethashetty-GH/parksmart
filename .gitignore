@@ -17,3 +17,4 @@ test-results/
 .claude/settings.local.json
 apps/api/migrations/
 e2e/.data/
+.vercel/

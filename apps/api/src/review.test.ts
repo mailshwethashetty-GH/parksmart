@@ -18,7 +18,7 @@ import type { AiClient, ReasonRewriteInput } from './ai/client';
 import { acceptable, keepsFacts, rewriteRoundReasons } from './ai/reasons';
 import { roundJobs } from './jobs/round-jobs';
 import { MAX_REASON_WORDS, wordCount } from './services/reasons';
-import { clientFor, createTestApp } from './test-utils';
+import { clientFor, createTestApp, findAsync } from './test-utils';
 
 const ist = (local: string) => new Date(`${local}:00+05:30`);
 type Ctx = Awaited<ReturnType<typeof createTestApp>>;
@@ -32,11 +32,11 @@ const NAMES = ['divya', 'arjun', 'priya', 'karthik'];
 async function setup(ai: AiClient | null = null) {
   now = ist('2026-11-25T10:00');
   ctx = await createTestApp({}, { clock: () => now, ai });
-  ctx.db
+  await ctx.db
     .update(sites)
     .set({ settingsJson: { sameDayPoolPercent: 0 } })
     .run();
-  ctx.db
+  await ctx.db
     .update(bays)
     .set({ active: false })
     .where(notInArray(bays.code, ['B1-001', 'B1-002', 'B1-EV-001']))
@@ -44,11 +44,11 @@ async function setup(ai: AiClient | null = null) {
   admin = await clientFor(ctx.app, 'admin@parksmart.test');
   for (const n of NAMES) c[n] = await clientFor(ctx.app, `${n}@parksmart.test`);
 }
-afterEach(async () => ctx.app.close());
+afterEach(async () => await ctx.app.close());
 
-const run = (at: string) => {
+const run = async (at: string) => {
   now = ist(at);
-  return roundJobs(ctx.db, now);
+  return await roundJobs(ctx.db, now);
 };
 async function weeklyRoundForTuesday() {
   for (const n of NAMES) {
@@ -59,26 +59,30 @@ async function weeklyRoundForTuesday() {
       reasonCategory: 'medical_appointment',
     });
   }
-  run('2026-11-27T12:00');
-  return ctx.db.select().from(rounds).get()!;
+  await run('2026-11-27T12:00');
+  return (await ctx.db.select().from(rounds).get())!;
 }
-const userId = (n: string) =>
-  ctx.db
+const userId = async (n: string) =>
+  (await ctx.db
     .select()
     .from(users)
     .where(eq(users.email, `${n}@parksmart.test`))
-    .get()!.id;
+    .get())!.id;
 const mine = async (n: string) =>
   ((await c[n]!.get('/requests')).body.items as Record<string, unknown>[]).find(
     (r) => r.date === '2026-12-01',
   )!;
 
 describe('plain-language reasons (FR-15)', () => {
-  beforeEach(() => setup());
+  beforeEach(async () => await setup());
 
   it('every decision gets a template reason under 40 words, with the bay or waitlist place', async () => {
     const round = await weeklyRoundForTuesday();
-    const rows = ctx.db.select().from(allocations).where(eq(allocations.roundId, round.id)).all();
+    const rows = await ctx.db
+      .select()
+      .from(allocations)
+      .where(eq(allocations.roundId, round.id))
+      .all();
     for (const a of rows) {
       expect(wordCount(a.reasonText!)).toBeLessThan(MAX_REASON_WORDS);
       if (a.outcome === 'confirmed')
@@ -90,7 +94,7 @@ describe('plain-language reasons (FR-15)', () => {
   it('employees see the reason and their bay once the round is published', async () => {
     await weeklyRoundForTuesday();
     expect((await mine('divya')).reason).toBeNull(); // not published yet
-    run('2026-11-30T07:00');
+    await run('2026-11-30T07:00');
     const confirmed = [];
     for (const n of NAMES) {
       const r = await mine(n);
@@ -106,7 +110,7 @@ describe('plain-language reasons (FR-15)', () => {
 });
 
 describe('round review, overrides and approval (FR-16)', () => {
-  beforeEach(() => setup());
+  beforeEach(async () => await setup());
 
   it('shows every decision with names, factors, reasons and free bays', async () => {
     const round = await weeklyRoundForTuesday();
@@ -180,24 +184,21 @@ describe('round review, overrides and approval (FR-16)', () => {
       overridden: true,
       reasonText: expect.stringContaining('Your parking admin assigned you bay'),
     });
-    expect(ctx.db.select().from(overrides).all()).toHaveLength(2);
+    expect(await ctx.db.select().from(overrides).all()).toHaveLength(2);
     expect(
-      ctx.db
-        .select()
-        .from(auditLog)
-        .where(eq(auditLog.action, 'allocation.override'))
-        .all()
-        .map((a) => a.reason),
+      (
+        await ctx.db.select().from(auditLog).where(eq(auditLog.action, 'allocation.override')).all()
+      ).map((a) => a.reason),
     ).toEqual(
       expect.arrayContaining(['Client visit confirmed by manager', 'Asked to give up the bay']),
     );
 
     const approved = await admin.post(`/admin/rounds/${round.id}/approve`, { note: 'Looks right' });
     expect(approved.body).toMatchObject({ status: 'published', publishMode: 'admin' });
-    expect(ctx.db.select().from(rounds).get()!.approvedBy).toBe(userId('admin'));
-    const held = ctx.db.select().from(bookings).where(eq(bookings.date, '2026-12-01')).all();
+    expect((await ctx.db.select().from(rounds).get())!.approvedBy).toBe(await userId('admin'));
+    const held = await ctx.db.select().from(bookings).where(eq(bookings.date, '2026-12-01')).all();
     expect(held.map((b) => b.userId)).toContain(
-      ctx.db.select().from(requests).where(eq(requests.id, loser.requestId)).get()!.userId,
+      (await ctx.db.select().from(requests).where(eq(requests.id, loser.requestId)).get())!.userId,
     );
     expect(new Set(held.map((b) => b.bayId)).size).toBe(held.length);
 
@@ -241,13 +242,17 @@ describe('AI-written reasons (FR-15, stage 1)', () => {
     const round = await weeklyRoundForTuesday();
     const summary = await rewriteRoundReasons(ctx.db, ctx.app.ai, round.id);
     expect(summary).toMatchObject({ status: 'done', attempted: 4, rewritten: 4, failed: 0 });
-    const a = ctx.db.select().from(allocations).where(eq(allocations.roundId, round.id)).all();
+    const a = await ctx.db
+      .select()
+      .from(allocations)
+      .where(eq(allocations.roundId, round.id))
+      .all();
     expect(a.every((x) => x.reasonText!.startsWith('Good news:'))).toBe(true);
-    expect(ctx.db.select().from(aiLogs).all()).toHaveLength(4);
+    expect(await ctx.db.select().from(aiLogs).all()).toHaveLength(4);
     // Non-negotiable #7: no names, ids, emails or medical signals leave the server.
     const sent = JSON.stringify(calls);
     for (const n of NAMES) expect(sent.toLowerCase()).not.toContain(n);
-    expect(sent).not.toContain(userId('divya'));
+    expect(sent).not.toContain(await userId('divya'));
     expect(sent).not.toMatch(/medical|parksmart\.test/);
   });
 
@@ -263,12 +268,20 @@ describe('AI-written reasons (FR-15, stage 1)', () => {
       }),
     );
     const round = await weeklyRoundForTuesday();
-    const before = ctx.db.select().from(allocations).where(eq(allocations.roundId, round.id)).all();
+    const before = await ctx.db
+      .select()
+      .from(allocations)
+      .where(eq(allocations.roundId, round.id))
+      .all();
     const summary = await rewriteRoundReasons(ctx.db, ctx.app.ai, round.id, { concurrency: 1 });
     expect(summary).toMatchObject({ rewritten: 1, failed: 1 });
-    const after = ctx.db.select().from(allocations).where(eq(allocations.roundId, round.id)).all();
+    const after = await ctx.db
+      .select()
+      .from(allocations)
+      .where(eq(allocations.roundId, round.id))
+      .all();
     expect(after.map((x) => x.reasonText).sort()).toEqual(before.map((x) => x.reasonText).sort());
-    const logs = ctx.db.select().from(aiLogs).all();
+    const logs = await ctx.db.select().from(aiLogs).all();
     expect(logs).toHaveLength(4);
     expect(logs.filter((l) => l.error)).toHaveLength(1);
   });
@@ -282,13 +295,13 @@ describe('AI-written reasons (FR-15, stage 1)', () => {
     await ctx.app.close();
     await setup(fake((input) => input.template));
     const round = await weeklyRoundForTuesday();
-    ctx.db.update(sites).set({ aiStage: 0 }).run();
+    await ctx.db.update(sites).set({ aiStage: 0 }).run();
     expect(await rewriteRoundReasons(ctx.db, ctx.app.ai, round.id)).toEqual({
       status: 'skipped',
       reason: 'AI_STAGE',
     });
-    ctx.db.update(sites).set({ aiStage: 1 }).run();
-    ctx.db
+    await ctx.db.update(sites).set({ aiStage: 1 }).run();
+    await ctx.db
       .update(allocations)
       .set({
         scoreBreakdownJson: {
@@ -313,29 +326,31 @@ describe('AI-written reasons (FR-15, stage 1)', () => {
 });
 
 describe('cancelling a booking (FR-4)', () => {
-  beforeEach(() => setup());
+  beforeEach(async () => await setup());
 
   it('frees the bay, ends the request, is audited, and re-offers it at once on the day', async () => {
     await weeklyRoundForTuesday();
-    run('2026-11-30T07:00');
-    const holder = NAMES.find((n) =>
-      ctx.db
-        .select()
-        .from(bookings)
-        .where(eq(bookings.userId, userId(n)))
-        .get(),
-    )!;
+    await run('2026-11-30T07:00');
+    const holder = (await findAsync(
+      NAMES,
+      async (n) =>
+        await ctx.db
+          .select()
+          .from(bookings)
+          .where(eq(bookings.userId, await userId(n)))
+          .get(),
+    ))!;
     const bookingId = ((await mine(holder)).booking as { id: string }).id;
     const other = NAMES.find((n) => n !== holder)!;
     expect((await c[other]!.post(`/bookings/${bookingId}/cancel`, {})).status).toBe(404);
 
     now = ist('2026-12-01T08:05'); // the day itself, during same-day rounds
     expect((await c[holder]!.post(`/bookings/${bookingId}/cancel`, {})).status).toBe(200);
-    expect(ctx.db.select().from(bookings).where(eq(bookings.id, bookingId)).get()!.status).toBe(
-      'cancelled',
-    );
     expect(
-      ctx.db.select().from(auditLog).where(eq(auditLog.action, 'booking.cancel')).all(),
+      (await ctx.db.select().from(bookings).where(eq(bookings.id, bookingId)).get())!.status,
+    ).toBe('cancelled');
+    expect(
+      await ctx.db.select().from(auditLog).where(eq(auditLog.action, 'booking.cancel')).all(),
     ).toHaveLength(1);
     const offered = await Promise.all(
       NAMES.filter((n) => n !== holder).map(async (n) => (await mine(n))?.offer),
@@ -346,13 +361,13 @@ describe('cancelling a booking (FR-4)', () => {
 });
 
 describe('audit log (FR-16)', () => {
-  beforeEach(() => setup());
+  beforeEach(async () => await setup());
 
   it('filters by action, pages with a cursor, and exports safe CSV', async () => {
     const draft = await admin.post('/admin/policy/versions');
     expect(draft.status).toBe(201);
     await admin.post('/admin/bay-blocks', {
-      bayIds: [ctx.db.select().from(bays).get()!.id],
+      bayIds: [(await ctx.db.select().from(bays).get())!.id],
       dateFrom: '2026-12-03',
       dateTo: '2026-12-03',
       reason: '=HYPERLINK("http://evil")',
@@ -387,7 +402,7 @@ describe('audit log (FR-16)', () => {
 });
 
 describe('live updates (FR-20)', () => {
-  beforeEach(() => setup());
+  beforeEach(async () => await setup());
 
   it('streams a "requests" event to the affected employee', async () => {
     const address = await ctx.app.listen({ port: 0, host: '127.0.0.1' });
@@ -413,8 +428,8 @@ describe('live updates (FR-20)', () => {
       while (!text.includes(needle)) text += decoder.decode((await reader.read()).value);
     };
     await readUntil('event: ready');
-    ctx.app.events.notifyUsers([userId('arjun')]); // someone else: nothing for Divya
-    ctx.app.events.notifyUsers([userId('divya')]);
+    ctx.app.events.notifyUsers([await userId('arjun')]); // someone else: nothing for Divya
+    ctx.app.events.notifyUsers([await userId('divya')]);
     await readUntil('event: requests');
     expect(text.match(/event: requests/g)).toHaveLength(1);
     abort.abort();

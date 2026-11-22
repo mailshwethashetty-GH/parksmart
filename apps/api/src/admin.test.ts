@@ -31,14 +31,9 @@ beforeEach(async () => {
   admin = await clientFor(ctx.app, 'admin@parksmart.test');
   employee = await clientFor(ctx.app, 'divya@parksmart.test');
 });
-afterEach(async () => ctx.app.close());
+afterEach(async () => await ctx.app.close());
 
-const auditActions = () =>
-  ctx.db
-    .select()
-    .from(auditLog)
-    .all()
-    .map((a) => a.action);
+const auditActions = async () => (await ctx.db.select().from(auditLog).all()).map((a) => a.action);
 
 describe('admin routes are admin-only and site-scoped', () => {
   it('employees get 403 on every admin area', async () => {
@@ -58,10 +53,16 @@ describe('admin routes are admin-only and site-scoped', () => {
     const siteId = createId();
     const zoneId = createId();
     const bayId = createId();
-    ctx.db.insert(orgs).values({ id: orgId, name: 'Other', emailDomain: 'other.test' }).run();
-    ctx.db.insert(sites).values({ id: siteId, orgId, name: 'Other site', settingsJson: {} }).run();
-    ctx.db.insert(zones).values({ id: zoneId, orgId, siteId, name: 'Z', kind: 'surface' }).run();
-    ctx.db
+    await ctx.db.insert(orgs).values({ id: orgId, name: 'Other', emailDomain: 'other.test' }).run();
+    await ctx.db
+      .insert(sites)
+      .values({ id: siteId, orgId, name: 'Other site', settingsJson: {} })
+      .run();
+    await ctx.db
+      .insert(zones)
+      .values({ id: zoneId, orgId, siteId, name: 'Z', kind: 'surface' })
+      .run();
+    await ctx.db
       .insert(bays)
       .values({ id: bayId, orgId, siteId, zoneId, code: 'X-1', bayType: 'car' })
       .run();
@@ -97,11 +98,15 @@ describe('site settings (FR-26)', () => {
     });
     expect(ok.status).toBe(200);
     expect(ok.body.settings.sameDayPoolPercent).toBe(15);
-    expect(auditActions()).toContain('site.settings.update');
+    expect(await auditActions()).toContain('site.settings.update');
   });
 
   it('backup admins must be admins of this site', async () => {
-    const divya = ctx.db.select().from(users).where(eq(users.email, 'divya@parksmart.test')).get()!;
+    const divya = (await ctx.db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'divya@parksmart.test'))
+      .get())!;
     const res = await admin.put('/admin/site/settings', {
       ...DEFAULT_SITE_SETTINGS,
       backupAdminIds: [divya.id],
@@ -183,7 +188,7 @@ describe('bay blocks (FR-26)', () => {
     );
     expect((await admin.delete(`/admin/bay-blocks/${created.body.items[0].id}`)).status).toBe(200);
     expect((await admin.get('/admin/bay-blocks')).body.items).toHaveLength(1);
-    expect(auditActions()).toEqual(
+    expect(await auditActions()).toEqual(
       expect.arrayContaining(['bay_block.create', 'bay_block.delete']),
     );
   });
@@ -203,11 +208,11 @@ describe('bay blocks (FR-26)', () => {
 });
 
 describe('roles (FR-29)', () => {
-  const userId = (email: string) =>
-    ctx.db.select().from(users).where(eq(users.email, email)).get()!.id;
+  const userId = async (email: string) =>
+    (await ctx.db.select().from(users).where(eq(users.email, email)).get())!.id;
 
   it('makes someone security staff, with a reason in the audit log', async () => {
-    const vikram = userId('vikram@parksmart.test');
+    const vikram = await userId('vikram@parksmart.test');
     const res = await admin.patch(`/admin/users/${vikram}/role`, {
       role: 'security',
       reason: 'Joins the gate team',
@@ -216,7 +221,11 @@ describe('roles (FR-29)', () => {
     expect(res.body).toMatchObject({ role: 'security' });
     const gate = await clientFor(ctx.app, 'vikram@parksmart.test');
     expect((await gate.get('/gate/today')).status).toBe(200);
-    const entry = ctx.db.select().from(auditLog).where(eq(auditLog.action, 'user.role')).get();
+    const entry = await ctx.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, 'user.role'))
+      .get();
     expect(entry).toMatchObject({
       entityId: vikram,
       beforeJson: { role: 'employee' },
@@ -226,13 +235,13 @@ describe('roles (FR-29)', () => {
   });
 
   it('needs a reason, an admin, and never the admin themself', async () => {
-    const vikram = userId('vikram@parksmart.test');
+    const vikram = await userId('vikram@parksmart.test');
     expect((await admin.patch(`/admin/users/${vikram}/role`, { role: 'admin' })).status).toBe(400);
     expect(
       (await employee.patch(`/admin/users/${vikram}/role`, { role: 'admin', reason: 'Promote me' }))
         .status,
     ).toBe(403);
-    const self = await admin.patch(`/admin/users/${userId('admin@parksmart.test')}/role`, {
+    const self = await admin.patch(`/admin/users/${await userId('admin@parksmart.test')}/role`, {
       role: 'employee',
       reason: 'Stepping down',
     });
@@ -241,11 +250,11 @@ describe('roles (FR-29)', () => {
 });
 
 describe('accessible approvals (FR-13)', () => {
-  const userId = (email: string) =>
-    ctx.db.select().from(users).where(eq(users.email, email)).get()!.id;
+  const userId = async (email: string) =>
+    (await ctx.db.select().from(users).where(eq(users.email, email)).get())!.id;
 
   it('approves with an expiry, refuses duplicates and non-employees, and revokes', async () => {
-    const priya = userId('priya@parksmart.test');
+    const priya = await userId('priya@parksmart.test');
     const created = await admin.post('/admin/approvals', {
       userId: priya,
       expiresOn: '2026-12-31',
@@ -260,18 +269,20 @@ describe('accessible approvals (FR-13)', () => {
       (await admin.post('/admin/approvals', { userId: priya, expiresOn: '2027-01-31' })).status,
     ).toBe(409);
     const forAdmin = await admin.post('/admin/approvals', {
-      userId: userId('admin@parksmart.test'),
+      userId: await userId('admin@parksmart.test'),
       expiresOn: '2026-12-31',
     });
     expect(forAdmin.body.error.code).toBe('APPROVAL_NOT_EMPLOYEE');
     const revoked = await admin.post(`/admin/approvals/${created.body.id}/revoke`);
     expect(revoked.body.active).toBe(false);
-    expect(auditActions()).toEqual(expect.arrayContaining(['approval.create', 'approval.revoke']));
+    expect(await auditActions()).toEqual(
+      expect.arrayContaining(['approval.create', 'approval.revoke']),
+    );
   });
 
   it('refuses an expiry in the past', async () => {
     const res = await admin.post('/admin/approvals', {
-      userId: userId('priya@parksmart.test'),
+      userId: await userId('priya@parksmart.test'),
       expiresOn: '2026-11-24',
     });
     expect(res.body.error.code).toBe('APPROVAL_EXPIRY_PAST');
@@ -348,11 +359,11 @@ describe('policy versions (FR-8, FR-9, FR-12)', () => {
     expect(
       (await admin.put('/admin/policy/versions/2/rules', { rules: published.body.rules })).status,
     ).toBe(409);
-    const audit = ctx.db
+    const audit = (await ctx.db
       .select()
       .from(auditLog)
       .where(eq(auditLog.action, 'policy.publish'))
-      .get()!;
+      .get())!;
     expect(audit.reason).toBe('More weight on fairness');
 
     // Next Monday, v2 is in force and v1 is superseded.
@@ -433,8 +444,8 @@ describe('feasibility checks (FR-11)', () => {
   });
 
   it('rules stored under an older schema still load, and show the problem instead of a 500', async () => {
-    const v1 = ctx.db.select().from(policyVersions).get()!;
-    ctx.db
+    const v1 = (await ctx.db.select().from(policyVersions).get())!;
+    await ctx.db
       .update(rules)
       .set({ configJson: { approvalKind: 'accessible' } }) // saved before `purpose` existed
       .where(and(eq(rules.policyVersionId, v1.id), eq(rules.key, 'accessibility_reservation')))

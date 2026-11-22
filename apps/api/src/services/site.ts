@@ -10,14 +10,14 @@ import { businessRule, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { writeAudit } from './audit';
 
-export function loadSite(db: Db, siteId: string) {
-  const site = db.select().from(sites).where(eq(sites.id, siteId)).get();
+export async function loadSite(db: Db, siteId: string) {
+  const site = await db.select().from(sites).where(eq(sites.id, siteId)).get();
   if (!site) throw notFound('Site');
   return { ...site, settings: parseSiteSettings(site.settingsJson) };
 }
 
-export function getSite(db: Db, siteId: string, now: Date): SiteResponse {
-  const site = loadSite(db, siteId);
+export async function getSite(db: Db, siteId: string, now: Date): Promise<SiteResponse> {
+  const site = await loadSite(db, siteId);
   const next = nextWeeklyRound(now, site.timezone, site.settings.rounds.weekly);
   return {
     id: site.id,
@@ -29,15 +29,15 @@ export function getSite(db: Db, siteId: string, now: Date): SiteResponse {
   };
 }
 
-export function updateSiteSettings(
+export async function updateSiteSettings(
   db: Db,
   actor: Actor,
   settings: SiteSettings,
   now: Date,
-): SiteResponse {
-  const before = loadSite(db, actor.siteId);
+): Promise<SiteResponse> {
+  const before = await loadSite(db, actor.siteId);
   if (settings.backupAdminIds.length > 0) {
-    const admins = db
+    const admins = await db
       .select({ id: users.id })
       .from(users)
       .where(
@@ -56,9 +56,9 @@ export function updateSiteSettings(
       );
     }
   }
-  db.transaction((tx) => {
-    tx.update(sites).set({ settingsJson: settings }).where(eq(sites.id, actor.siteId)).run();
-    writeAudit(
+  await db.transaction(async (tx) => {
+    await tx.update(sites).set({ settingsJson: settings }).where(eq(sites.id, actor.siteId)).run();
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -72,5 +72,5 @@ export function updateSiteSettings(
       now,
     );
   });
-  return getSite(db, actor.siteId, now);
+  return await getSite(db, actor.siteId, now);
 }

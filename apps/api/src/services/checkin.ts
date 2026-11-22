@@ -54,27 +54,29 @@ const invalidToken = () =>
   new AppError(400, 'QR_INVALID', 'This QR code is not valid. Ask the employee to refresh it.');
 
 /** The arrival window of the request that won this booking (one request per person per day). */
-function arrivalWindowFor(db: Db, b: BookingRow): ArrivalWindow {
+async function arrivalWindowFor(db: Db, b: BookingRow): Promise<ArrivalWindow> {
   return (
-    db
-      .select({ w: requests.arrivalWindow })
-      .from(requests)
-      .where(
-        and(
-          eq(requests.userId, b.userId),
-          eq(requests.date, b.date),
-          inArray(requests.status, ['allocated', 'expired']),
-        ),
-      )
-      .get()?.w ?? 'before_9'
+    (
+      await db
+        .select({ w: requests.arrivalWindow })
+        .from(requests)
+        .where(
+          and(
+            eq(requests.userId, b.userId),
+            eq(requests.date, b.date),
+            inArray(requests.status, ['allocated', 'expired']),
+          ),
+        )
+        .get()
+    )?.w ?? 'before_9'
   );
 }
 
-export function deadlineFor(db: Db, b: BookingRow): Date {
-  const site = loadSite(db, b.siteId);
+export async function deadlineFor(db: Db, b: BookingRow): Promise<Date> {
+  const site = await loadSite(db, b.siteId);
   return checkInDeadline({
     date: b.date,
-    arrivalWindow: arrivalWindowFor(db, b),
+    arrivalWindow: await arrivalWindowFor(db, b),
     bookedAt: b.createdAt,
     lateExtensionUsed: b.lateExtensionUsed,
     timeZone: site.timezone,
@@ -82,18 +84,18 @@ export function deadlineFor(db: Db, b: BookingRow): Date {
   });
 }
 
-function ownBooking(db: Db, actor: Actor, id: string): BookingRow {
-  const b = db.select().from(bookings).where(eq(bookings.id, id)).get();
+async function ownBooking(db: Db, actor: Actor, id: string): Promise<BookingRow> {
+  const b = await db.select().from(bookings).where(eq(bookings.id, id)).get();
   if (!b || b.userId !== actor.id) throw notFound('Booking');
   return b;
 }
 
 // --- tokens ------------------------------------------------------------------------
 export async function bookingQr(db: Db, actor: Actor, bookingId: string, secret: string) {
-  const b = ownBooking(db, actor, bookingId);
+  const b = await ownBooking(db, actor, bookingId);
   if (b.status !== 'confirmed' && b.status !== 'checked_in')
     throw conflict('This booking is no longer active.');
-  const { timezone } = loadSite(db, b.siteId);
+  const { timezone } = await loadSite(db, b.siteId);
   const from = siteLocalToUtc(b.date, '00:00', timezone);
   const until = siteLocalToUtc(addDays(b.date, 1), '00:00', timezone);
   const token = await new SignJWT({ k: 'booking', b: b.id, s: b.siteId })
@@ -106,7 +108,7 @@ export async function bookingQr(db: Db, actor: Actor, bookingId: string, secret:
 }
 
 export async function bayQr(db: Db, actor: Actor, bayId: string, secret: string) {
-  const bay = db.select().from(bays).where(eq(bays.id, bayId)).get();
+  const bay = await db.select().from(bays).where(eq(bays.id, bayId)).get();
   if (!bay) throw notFound('Bay');
   if (bay.siteId !== actor.siteId) throw forbidden('This bay belongs to another site.');
   const token = await new SignJWT({ k: 'bay', bay: bay.id, s: bay.siteId })
@@ -130,15 +132,15 @@ async function verify(token: string, secret: string, now: Date) {
 }
 
 // --- check-in ------------------------------------------------------------------------
-function markCheckedIn(
+async function markCheckedIn(
   db: Db,
   b: BookingRow,
   method: CheckinMethod,
   by: Actor,
   now: Date,
-): CheckinResult {
-  return db.transaction((tx) => {
-    const current = tx.select().from(bookings).where(eq(bookings.id, b.id)).get()!;
+): Promise<CheckinResult> {
+  return await db.transaction(async (tx) => {
+    const current = (await tx.select().from(bookings).where(eq(bookings.id, b.id)).get())!;
     const already = current.status === 'checked_in';
     if (!already && current.status !== 'confirmed') {
       const why =
@@ -148,9 +150,9 @@ function markCheckedIn(
       throw conflict(`This booking ${why}.`, { status: current.status });
     }
     if (!already) {
-      tx.update(bookings).set({ status: 'checked_in' }).where(eq(bookings.id, b.id)).run();
-      tx.insert(checkins).values({ bookingId: b.id, method, at: now, byUserId: by.id }).run();
-      writeAudit(
+      await tx.update(bookings).set({ status: 'checked_in' }).where(eq(bookings.id, b.id)).run();
+      await tx.insert(checkins).values({ bookingId: b.id, method, at: now, byUserId: by.id }).run();
+      await writeAudit(
         tx,
         {
           siteId: b.siteId,
@@ -163,17 +165,22 @@ function markCheckedIn(
         now,
       );
     }
-    const info = tx
+    const info = (await tx
       .select({ bayCode: bays.code, zoneName: zones.name, employeeName: users.name })
       .from(bookings)
       .innerJoin(bays, eq(bays.id, bookings.bayId))
       .innerJoin(zones, eq(zones.id, bays.zoneId))
       .innerJoin(users, eq(users.id, bookings.userId))
       .where(eq(bookings.id, b.id))
-      .get()!;
+      .get())!;
     const at =
-      tx.select({ at: checkins.at }).from(checkins).where(eq(checkins.bookingId, b.id)).get()?.at ??
-      now;
+      (
+        await tx
+          .select({ at: checkins.at })
+          .from(checkins)
+          .where(eq(checkins.bookingId, b.id))
+          .get()
+      )?.at ?? now;
     return {
       alreadyCheckedIn: already,
       booking: { id: b.id, date: b.date, ...info, checkedInAt: at.toISOString() },
@@ -181,8 +188,8 @@ function markCheckedIn(
   });
 }
 
-function assertToday(db: Db, b: BookingRow, now: Date) {
-  if (b.date !== siteLocalDate(now, loadSite(db, b.siteId).timezone)) {
+async function assertToday(db: Db, b: BookingRow, now: Date) {
+  if (b.date !== siteLocalDate(now, (await loadSite(db, b.siteId)).timezone)) {
     throw businessRule('NOT_TODAY', 'This booking is not for today.');
   }
 }
@@ -192,10 +199,10 @@ export async function scanCheckin(db: Db, actor: Actor, token: string, secret: s
   const payload = await verify(token, secret, now);
   if (payload.k !== 'booking' || !payload.b) throw invalidToken();
   if (payload.s !== actor.siteId) throw forbidden('This QR code is for another site.');
-  const b = db.select().from(bookings).where(eq(bookings.id, payload.b)).get();
+  const b = await db.select().from(bookings).where(eq(bookings.id, payload.b)).get();
   if (!b) throw invalidToken();
-  assertToday(db, b, now);
-  return markCheckedIn(db, b, 'qr_employee', actor, now);
+  await assertToday(db, b, now);
+  return await markCheckedIn(db, b, 'qr_employee', actor, now);
 }
 
 /** The employee scans the sticker on their bay. */
@@ -203,8 +210,8 @@ export async function bayCheckin(db: Db, actor: Actor, token: string, secret: st
   const payload = await verify(token, secret, now);
   if (payload.k !== 'bay' || !payload.bay) throw invalidToken();
   if (payload.s !== actor.siteId) throw forbidden('This bay belongs to another site.');
-  const today = siteLocalDate(now, loadSite(db, actor.siteId).timezone);
-  const mine = db
+  const today = siteLocalDate(now, (await loadSite(db, actor.siteId)).timezone);
+  const mine = await db
     .select()
     .from(bookings)
     .where(
@@ -217,64 +224,64 @@ export async function bayCheckin(db: Db, actor: Actor, token: string, secret: st
     .get();
   if (!mine) throw businessRule('NO_BOOKING_TODAY', 'You have no bay booked for today.');
   if (mine.bayId !== payload.bay) {
-    const code = db
-      .select({ code: bays.code })
-      .from(bays)
-      .where(eq(bays.id, mine.bayId))
-      .get()?.code;
+    const code = (
+      await db.select({ code: bays.code }).from(bays).where(eq(bays.id, mine.bayId)).get()
+    )?.code;
     throw businessRule('WRONG_BAY', `This isn't your bay. Your bay today is ${code}.`, {
       bayCode: code,
     });
   }
-  return markCheckedIn(db, mine, 'qr_bay', actor, now);
+  return await markCheckedIn(db, mine, 'qr_bay', actor, now);
 }
 
 /** Security checks someone in by hand (no phone, damaged QR, …). */
-export function manualCheckin(db: Db, actor: Actor, bookingId: string, now: Date) {
-  const b = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
+export async function manualCheckin(db: Db, actor: Actor, bookingId: string, now: Date) {
+  const b = await db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
   if (!b) throw notFound('Booking');
   if (b.siteId !== actor.siteId) throw forbidden('This booking belongs to another site.');
-  assertToday(db, b, now);
-  return markCheckedIn(db, b, 'manual_security', actor, now);
+  await assertToday(db, b, now);
+  return await markCheckedIn(db, b, 'manual_security', actor, now);
 }
 
 // --- running late ---------------------------------------------------------------------
-export function runningLate(
+export async function runningLate(
   db: Db,
   actor: Actor,
   bookingId: string,
   now: Date,
-): { checkInBy: string } {
-  const b = ownBooking(db, actor, bookingId);
+): Promise<{ checkInBy: string }> {
+  const b = await ownBooking(db, actor, bookingId);
   if (b.status !== 'confirmed')
     throw conflict('Only a booking that is waiting for check-in can be extended.');
-  assertToday(db, b, now);
+  await assertToday(db, b, now);
   if (b.lateExtensionUsed) throw conflict('You have already extended this booking.');
-  if (deadlineFor(db, b).getTime() <= now.getTime())
+  if ((await deadlineFor(db, b)).getTime() <= now.getTime())
     throw conflict('The check-in time has already passed.');
-  const site = loadSite(db, b.siteId);
+  const site = await loadSite(db, b.siteId);
   const week = weekStart(b.date);
-  const used = db
-    .select({ id: bookings.id })
-    .from(bookings)
-    .where(
-      and(
-        eq(bookings.userId, actor.id),
-        eq(bookings.lateExtensionUsed, true),
-        gte(bookings.date, week),
-        lt(bookings.date, addDays(week, 7)),
-      ),
-    )
-    .all().length;
+  const used = (
+    await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.userId, actor.id),
+          eq(bookings.lateExtensionUsed, true),
+          gte(bookings.date, week),
+          lt(bookings.date, addDays(week, 7)),
+        ),
+      )
+      .all()
+  ).length;
   if (used >= site.settings.lateExtensionsPerWeek) {
     throw businessRule(
       'LATE_LIMIT',
       `You can use "running late" ${site.settings.lateExtensionsPerWeek} time(s) a week.`,
     );
   }
-  db.transaction((tx) => {
-    tx.update(bookings).set({ lateExtensionUsed: true }).where(eq(bookings.id, b.id)).run();
-    writeAudit(
+  await db.transaction(async (tx) => {
+    await tx.update(bookings).set({ lateExtensionUsed: true }).where(eq(bookings.id, b.id)).run();
+    await writeAudit(
       tx,
       {
         siteId: b.siteId,
@@ -286,14 +293,14 @@ export function runningLate(
       now,
     );
   });
-  return { checkInBy: deadlineFor(db, { ...b, lateExtensionUsed: true }).toISOString() };
+  return { checkInBy: (await deadlineFor(db, { ...b, lateExtensionUsed: true })).toISOString() };
 }
 
 // --- gate view ------------------------------------------------------------------------
-export function gateToday(db: Db, siteId: string, now: Date): GateTodayResponse {
-  const site = loadSite(db, siteId);
+export async function gateToday(db: Db, siteId: string, now: Date): Promise<GateTodayResponse> {
+  const site = await loadSite(db, siteId);
   const today = siteLocalDate(now, site.timezone);
-  const rows = db
+  const rows = await db
     .select({
       booking: bookings,
       employeeName: users.name,
@@ -308,7 +315,7 @@ export function gateToday(db: Db, siteId: string, now: Date): GateTodayResponse 
     .where(and(eq(bookings.siteId, siteId), eq(bookings.date, today)))
     .all();
   const ins = rows.length
-    ? db
+    ? await db
         .select()
         .from(checkins)
         .where(
@@ -319,7 +326,7 @@ export function gateToday(db: Db, siteId: string, now: Date): GateTodayResponse 
         )
         .all()
     : [];
-  const blocked = db
+  const blocked = await db
     .select()
     .from(bayBlocks)
     .where(
@@ -331,7 +338,7 @@ export function gateToday(db: Db, siteId: string, now: Date): GateTodayResponse 
       ),
     )
     .all();
-  const allBays = db
+  const allBays = await db
     .select({
       id: bays.id,
       code: bays.code,
@@ -346,6 +353,10 @@ export function gateToday(db: Db, siteId: string, now: Date): GateTodayResponse 
   const holding = rows.filter(
     (r) => r.booking.status === 'confirmed' || r.booking.status === 'checked_in',
   );
+  const deadlines = new Map<string, Date>();
+  for (const { booking: b } of rows) {
+    if (b.status === 'confirmed') deadlines.set(b.id, await deadlineFor(db, b));
+  }
   return {
     date: today,
     bookings: rows
@@ -355,7 +366,7 @@ export function gateToday(db: Db, siteId: string, now: Date): GateTodayResponse 
           id: b.id,
           ...rest,
           status: b.status,
-          checkInBy: b.status === 'confirmed' ? deadlineFor(db, b).toISOString() : null,
+          checkInBy: deadlines.get(b.id)?.toISOString() ?? null,
           checkedInAt: c?.at.toISOString() ?? null,
           method: c?.method ?? null,
         };
@@ -391,11 +402,11 @@ export type Released = { siteId: string; date: IsoDate; bookingId: string; userI
  * checked-in bookings from earlier days ("day ends"). Returns what was auto-released so
  * the caller can re-offer the bays and tell the employees.
  */
-export function autoRelease(db: Db, now: Date): Released[] {
+export async function autoRelease(db: Db, now: Date): Promise<Released[]> {
   const released: Released[] = [];
-  for (const site of db.select().from(sites).all()) {
+  for (const site of await db.select().from(sites).all()) {
     const today = siteLocalDate(now, site.timezone);
-    const due = db
+    const confirmed = await db
       .select()
       .from(bookings)
       .where(
@@ -405,17 +416,19 @@ export function autoRelease(db: Db, now: Date): Released[] {
           lte(bookings.date, today),
         ),
       )
-      .all()
-      .filter((b) => deadlineFor(db, b).getTime() <= now.getTime());
-    for (const b of due) {
-      const deadline = deadlineFor(db, b);
-      db.transaction((tx) => {
-        tx.update(bookings)
+      .all();
+    for (const b of confirmed) {
+      const deadline = await deadlineFor(db, b);
+      if (deadline.getTime() > now.getTime()) continue;
+      await db.transaction(async (tx) => {
+        await tx
+          .update(bookings)
           .set({ status: 'auto_released' })
           .where(and(eq(bookings.id, b.id), eq(bookings.status, 'confirmed')))
           .run();
         // The request is over; the employee can request again (a same-day bay, say).
-        tx.update(requests)
+        await tx
+          .update(requests)
           .set({ status: 'expired' })
           .where(
             and(
@@ -425,7 +438,7 @@ export function autoRelease(db: Db, now: Date): Released[] {
             ),
           )
           .run();
-        writeAudit(
+        await writeAudit(
           tx,
           {
             siteId: b.siteId,
@@ -440,12 +453,10 @@ export function autoRelease(db: Db, now: Date): Released[] {
           now,
         );
       });
-      const bayCode = db
-        .select({ code: bays.code })
-        .from(bays)
-        .where(eq(bays.id, b.bayId))
-        .get()?.code;
-      queueNotification(db, {
+      const bayCode = (
+        await db.select({ code: bays.code }).from(bays).where(eq(bays.id, b.bayId)).get()
+      )?.code;
+      await queueNotification(db, {
         userId: b.userId,
         kind: 'auto_released',
         payload: { date: b.date, bayCode },
@@ -454,7 +465,7 @@ export function autoRelease(db: Db, now: Date): Released[] {
       released.push({ siteId: b.siteId, date: b.date, bookingId: b.id, userId: b.userId });
     }
     // Day ends: checked-in bookings from earlier days are released (audited, like every release).
-    const ended = db
+    const ended = await db
       .select()
       .from(bookings)
       .where(
@@ -466,9 +477,9 @@ export function autoRelease(db: Db, now: Date): Released[] {
       )
       .all();
     for (const b of ended) {
-      db.transaction((tx) => {
-        tx.update(bookings).set({ status: 'released' }).where(eq(bookings.id, b.id)).run();
-        writeAudit(
+      await db.transaction(async (tx) => {
+        await tx.update(bookings).set({ status: 'released' }).where(eq(bookings.id, b.id)).run();
+        await writeAudit(
           tx,
           {
             siteId: b.siteId,

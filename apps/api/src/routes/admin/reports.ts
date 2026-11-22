@@ -10,14 +10,14 @@ export const adminReportRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/reports/monthly',
     { schema: { tags, querystring: reportQuerySchema, response: { 200: monthlyReportSchema } } },
-    async (req) => monthlyReport(app.db, actorOf(req).siteId, req.query.month, app.clock()),
+    async (req) => await monthlyReport(app.db, actorOf(req).siteId, req.query.month, app.clock()),
   );
   app.get(
     '/reports/export',
     { schema: { tags, querystring: reportQuerySchema } },
     async (req, reply) => {
       const csv = monthlyReportCsv(
-        monthlyReport(app.db, actorOf(req).siteId, req.query.month, app.clock()),
+        await monthlyReport(app.db, actorOf(req).siteId, req.query.month, app.clock()),
       );
       return reply
         .header('content-type', 'text/csv; charset=utf-8')

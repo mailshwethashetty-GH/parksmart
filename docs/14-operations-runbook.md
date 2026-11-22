@@ -1,6 +1,37 @@
 # 14 — Operations Runbook
 
-> For whoever deploys and runs the pilot (IT or the delivery team). How to stand ParkSmart up on one host, check it is healthy, back it up, restore it and handle an incident. Architecture is in `07-architecture.md`; hosting choices in `06-tech-stack.md`. Last reviewed: 2026-11-22.
+> For whoever deploys and runs the pilot (IT or the delivery team). How to stand ParkSmart up (Vercel + Turso for the capstone prototype, or one Docker host), check it is healthy, back it up, restore it and handle an incident. Architecture is in `07-architecture.md`; hosting choices in `06-tech-stack.md`. Last reviewed: 2026-11-22.
+
+## Capstone prototype: Vercel + Turso (ADR-016)
+
+The hosted prototype runs on Vercel (web + API function) with a Turso database and GitHub Actions as the scheduler. The Docker deployment below stays the option for a real pilot.
+
+**One-time setup**
+
+1. **Turso** (app.turso.tech): create a database in AWS `ap-south-1` (Mumbai), for example `parksmart`. Copy its URL (`libsql://parksmart-<org>.turso.io`) and create a database token (read-write, no expiry or a long one).
+2. **Schema and sample data**, from a checkout: `DATABASE_URL=… DATABASE_AUTH_TOKEN=… pnpm db:migrate`, then the same with `pnpm db:seed` (demo org, site, 150 bays, sample people, default policy).
+3. **Vercel**: import the GitHub repo (Add New → Project). Framework preset: Other. `vercel.json` sets the install and build commands and the `bom1` region. Environment variables (Production):
+
+   | Variable | Value |
+   | --- | --- |
+   | `NODE_ENV` | `production` |
+   | `APP_URL` | `https://<project>.vercel.app` (the production domain) |
+   | `DATABASE_URL`, `DATABASE_AUTH_TOKEN` | From step 1 |
+   | `SESSION_SECRET`, `QR_SIGNING_SECRET`, `CRON_SECRET` | 48 random characters each: `openssl rand -base64 48` |
+   | `DEMO_MODE` | `true` for the capstone demo (sample people sign in; ADR-017) |
+   | `ENABLE_EXPERIMENTAL_COREPACK` | `1` (installs with the repo's pnpm 12) |
+   | `ORG_EMAIL_DOMAIN`, `SSO_GOOGLE_CLIENT_ID`, `SSO_GOOGLE_CLIENT_SECRET` | Optional, for Google sign-in (step 5). `ORG_EMAIL_DOMAIN=gmail.com` when reviewers use Gmail |
+   | `ALLOWED_EMAILS`, `INITIAL_ADMIN_EMAILS` | Who may sign in with Google, and who of them is admin |
+   | `ANTHROPIC_API_KEY`, `SENTRY_DSN`, `SMTP_*` | Optional, as for Docker |
+
+4. **Scheduler**: GitHub repo → Settings → Secrets and variables → Actions: add `PARKSMART_URL` (`https://<project>.vercel.app`) and `CRON_SECRET` (same value as in Vercel). The "Scheduled jobs" workflow then calls `/api/v1/cron/tick` every 5 minutes; run it by hand from the Actions tab to test.
+5. **Google sign-in (optional)**: Google Cloud console → APIs & Services → Credentials → OAuth client ID (Web application). Authorised redirect URI: `https://<project>.vercel.app/api/v1/auth/sso/callback/google`. Consent screen in Testing mode with the reviewers added as test users. Put the client ID and secret in Vercel and redeploy.
+
+**Checks**: `https://<project>.vercel.app/health` returns `{"status":"ok","db":"ok"}`; the login page lists the sample people; the Actions run log shows `{"rounds":{"ok":true,…}}`.
+
+**Deploys**: every push to `main` deploys to production; other branches get preview URLs (they share the production database unless given their own `DATABASE_URL`). Run `pnpm db:migrate` against Turso **before** merging a change that adds a migration.
+
+**Known limits**: deadlines can run a few minutes late (GitHub's schedule, R15); live updates are 30 s polling; Turso's dashboard shows usage against the free tier (R17); restore from Turso's point-in-time backups in its dashboard.
 
 ## What runs where
 

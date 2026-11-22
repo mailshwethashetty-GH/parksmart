@@ -3,6 +3,7 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 06, 07, 09, 10, 11, 12, 13, 14, CLAUDE.md — Vercel + Turso hosting (ADR-016), demo mode and allowlisted sign-in (ADR-017), `/login-options` and `/cron/tick`, login screen, R14 closed, R15–R17, M9, Vercel runbook — the capstone must be hosted on Vercel with Turso
 - 2026-11-22 — 14, 15, CLAUDE.md — Added operations runbook and gate guide — pilot launch needs both (M8, D4)
 - 2026-11-22 — 12 — ADR-014 (SSO provider, first admins and first-run setup from env), ADR-015 (rate limit per session) — a fresh production install had no way in; offices share one IP
 - 2026-11-22 — 06, 07, 09, 10 — Docker/Caddy/Litestream, Sentry, e2e workspace, CI jobs, new env vars; `PATCH /admin/users/:id/role`; People tab — built in M8

@@ -22,8 +22,8 @@ function decodeCursor(cursor: string | undefined) {
   return Number.isFinite(at) && id ? { at: new Date(at), id } : null;
 }
 
-function whereFor(db: Db, siteId: string, f: AuditFilter) {
-  const { timezone } = loadSite(db, siteId);
+async function whereFor(db: Db, siteId: string, f: AuditFilter) {
+  const { timezone } = await loadSite(db, siteId);
   const conditions = [eq(auditLog.siteId, siteId)];
   if (f.from) conditions.push(gte(auditLog.at, siteLocalToUtc(f.from, '00:00', timezone)));
   if (f.to) conditions.push(lt(auditLog.at, siteLocalToUtc(addDays(f.to, 1), '00:00', timezone)));
@@ -38,16 +38,16 @@ function whereFor(db: Db, siteId: string, f: AuditFilter) {
   return and(...conditions);
 }
 
-export function listAudit(
+export async function listAudit(
   db: Db,
   siteId: string,
   f: AuditFilter,
-): { items: AuditEntry[]; nextCursor: string | null } {
-  const rows = db
+): Promise<{ items: AuditEntry[]; nextCursor: string | null }> {
+  const rows = await db
     .select({ entry: auditLog, actorName: users.name })
     .from(auditLog)
     .leftJoin(users, eq(users.id, auditLog.actorId))
-    .where(whereFor(db, siteId, f))
+    .where(await whereFor(db, siteId, f))
     .orderBy(desc(auditLog.at), desc(auditLog.id))
     .limit(f.limit + 1)
     .all();
@@ -79,12 +79,12 @@ const csvCell = (v: unknown) => {
 
 export const AUDIT_EXPORT_LIMIT = 50_000;
 
-export function exportAuditCsv(
+export async function exportAuditCsv(
   db: Db,
   siteId: string,
   f: Omit<AuditFilter, 'cursor' | 'limit'>,
-): string {
-  const { items } = listAudit(db, siteId, { ...f, limit: AUDIT_EXPORT_LIMIT });
+): Promise<string> {
+  const { items } = await listAudit(db, siteId, { ...f, limit: AUDIT_EXPORT_LIMIT });
   const header = ['at', 'actor', 'action', 'entity', 'entity_id', 'reason', 'before', 'after'];
   const lines = items.map((e) =>
     [e.at, e.actor?.name ?? 'system', e.action, e.entity, e.entityId, e.reason, e.before, e.after]

@@ -18,6 +18,7 @@ import { adminReviewRoutes } from './routes/admin/review';
 import { adminRoundRoutes } from './routes/admin/rounds';
 import { adminSiteRoutes } from './routes/admin/site';
 import { checkinRoutes } from './routes/checkin';
+import { cronRoutes } from './routes/cron';
 import { liveRoutes } from './routes/live';
 import { meRoutes } from './routes/me';
 import { meProfileRoutes } from './routes/me-profile';
@@ -42,7 +43,7 @@ export type BuildAppOptions = {
 export async function buildApp({ env, db, logger, webRoot, clock, ai, mailer }: BuildAppOptions) {
   const app = Fastify({
     logger: logger ?? { level: env.LOG_LEVEL ?? 'info' },
-    trustProxy: env.NODE_ENV === 'production', // behind Caddy
+    trustProxy: env.NODE_ENV === 'production', // behind Caddy or Vercel's edge
   });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -78,6 +79,7 @@ export async function buildApp({ env, db, logger, webRoot, clock, ai, mailer }: 
   await app.register(
     async (api) => {
       await api.register(csrfRoutes);
+      await api.register(cronRoutes);
       await api.register(meRoutes);
       await api.register(meProfileRoutes);
       await api.register(policyRoutes);

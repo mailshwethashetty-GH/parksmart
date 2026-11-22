@@ -37,22 +37,22 @@ import { publishRound } from './rounds';
 
 type Breakdown = { date: string; reasonCode: string; factors?: FactorScoreLike[] };
 
-function roundInSite(db: Db, actor: Actor, roundId: string) {
+async function roundInSite(db: Db, actor: Actor, roundId: string) {
   return assertInSite(
-    db.select().from(rounds).where(eq(rounds.id, roundId)).get(),
+    await db.select().from(rounds).where(eq(rounds.id, roundId)).get(),
     actor.siteId,
     'Round',
   );
 }
 
 /** Active bays not blocked, held, or already confirmed in this round, per date. */
-function freeBays(db: Db, round: typeof rounds.$inferSelect, dates: string[]) {
-  const all = db
+async function freeBays(db: Db, round: typeof rounds.$inferSelect, dates: string[]) {
+  const all = await db
     .select()
     .from(bays)
     .where(and(eq(bays.siteId, round.siteId), eq(bays.active, true)))
     .all();
-  const blocks = db
+  const blocks = await db
     .select()
     .from(bayBlocks)
     .where(
@@ -64,7 +64,7 @@ function freeBays(db: Db, round: typeof rounds.$inferSelect, dates: string[]) {
       ),
     )
     .all();
-  const held = db
+  const held = await db
     .select({ bayId: bookings.bayId, date: bookings.date })
     .from(bookings)
     .where(
@@ -75,12 +75,13 @@ function freeBays(db: Db, round: typeof rounds.$inferSelect, dates: string[]) {
       ),
     )
     .all();
-  const assigned = db
-    .select({ bayId: allocations.bayId, breakdown: allocations.scoreBreakdownJson })
-    .from(allocations)
-    .where(and(eq(allocations.roundId, round.id), eq(allocations.outcome, 'confirmed')))
-    .all()
-    .map((a) => ({ bayId: a.bayId, date: (a.breakdown as Breakdown).date }));
+  const assigned = (
+    await db
+      .select({ bayId: allocations.bayId, breakdown: allocations.scoreBreakdownJson })
+      .from(allocations)
+      .where(and(eq(allocations.roundId, round.id), eq(allocations.outcome, 'confirmed')))
+      .all()
+  ).map((a) => ({ bayId: a.bayId, date: (a.breakdown as Breakdown).date }));
   return dates.map((date) => {
     const taken = new Set(
       [...held, ...assigned].filter((x) => x.date === date).map((x) => x.bayId),
@@ -104,10 +105,17 @@ function freeBays(db: Db, round: typeof rounds.$inferSelect, dates: string[]) {
   });
 }
 
-export function getRoundDetail(db: Db, actor: Actor, roundId: string, now: Date): RoundDetail {
-  const round = roundInSite(db, actor, roundId);
-  const summary = listRounds(db, actor.siteId, now, undefined, 500).find((r) => r.id === roundId)!;
-  const rows = db
+export async function getRoundDetail(
+  db: Db,
+  actor: Actor,
+  roundId: string,
+  now: Date,
+): Promise<RoundDetail> {
+  const round = await roundInSite(db, actor, roundId);
+  const summary = (await listRounds(db, actor.siteId, now, undefined, 500)).find(
+    (r) => r.id === roundId,
+  )!;
+  const rows = await db
     .select({
       allocation: allocations,
       request: requests,
@@ -122,24 +130,25 @@ export function getRoundDetail(db: Db, actor: Actor, roundId: string, now: Date)
     .all();
   const overridden = new Set(
     rows.length
-      ? db
-          .select({ id: overrides.allocationId })
-          .from(overrides)
-          .where(
-            inArray(
-              overrides.allocationId,
-              rows.map((r) => r.allocation.id),
-            ),
-          )
-          .all()
-          .map((o) => o.id)
+      ? (
+          await db
+            .select({ id: overrides.allocationId })
+            .from(overrides)
+            .where(
+              inArray(
+                overrides.allocationId,
+                rows.map((r) => r.allocation.id),
+              ),
+            )
+            .all()
+        ).map((o) => o.id)
       : [],
   );
-  const version = db
+  const version = (await db
     .select()
     .from(policyVersions)
     .where(eq(policyVersions.id, round.policyVersionId))
-    .get()!;
+    .get())!;
   const decisions = rows
     .map(({ allocation: a, request: r, userName, bayCode }) => {
       const b = a.scoreBreakdownJson as Breakdown;
@@ -171,43 +180,44 @@ export function getRoundDetail(db: Db, actor: Actor, roundId: string, now: Date)
     seed: round.seed,
     policyVersion: version.version,
     decisions,
-    freeBays: round.status === 'pending_review' ? freeBays(db, round, dates) : [],
+    freeBays: round.status === 'pending_review' ? await freeBays(db, round, dates) : [],
   };
 }
 
 /** Approve and publish (FR-16). Returns the employees affected, for live updates. */
-export function approveRound(
+export async function approveRound(
   db: Db,
   actor: Actor,
   roundId: string,
   now: Date,
   note?: string,
-): string[] {
-  const round = roundInSite(db, actor, roundId);
+): Promise<string[]> {
+  const round = await roundInSite(db, actor, roundId);
   if (round.status !== 'pending_review') throw conflict('This round is not awaiting review.');
-  publishRound(db, roundId, 'admin', actor.id, now, note ?? 'Approved by admin');
-  return db
-    .select({ userId: requests.userId })
-    .from(allocations)
-    .innerJoin(requests, eq(requests.id, allocations.requestId))
-    .where(eq(allocations.roundId, roundId))
-    .all()
-    .map((r) => r.userId);
+  await publishRound(db, roundId, 'admin', actor.id, now, note ?? 'Approved by admin');
+  return (
+    await db
+      .select({ userId: requests.userId })
+      .from(allocations)
+      .innerJoin(requests, eq(requests.id, allocations.requestId))
+      .where(eq(allocations.roundId, roundId))
+      .all()
+  ).map((r) => r.userId);
 }
 
-export function overrideAllocation(
+export async function overrideAllocation(
   db: Db,
   actor: Actor,
   allocationId: string,
   input: OverrideInput,
   now: Date,
-): void {
-  db.transaction(
-    (tx) => {
+): Promise<void> {
+  await db.transaction(
+    async (tx) => {
       const tdb = tx as unknown as Db;
-      const a = tx.select().from(allocations).where(eq(allocations.id, allocationId)).get();
+      const a = await tx.select().from(allocations).where(eq(allocations.id, allocationId)).get();
       if (!a) throw notFound('Decision');
-      const round = roundInSite(tdb, actor, a.roundId);
+      const round = await roundInSite(tdb, actor, a.roundId);
       if (round.status !== 'pending_review') {
         throw conflict('Only decisions in a round awaiting review can be overridden.');
       }
@@ -219,7 +229,9 @@ export function overrideAllocation(
       if (input.action === 'assign') {
         if (a.outcome === 'confirmed' && a.bayId === input.bayId)
           throw conflict('That bay is already assigned.');
-        const free = freeBays(tdb, round, [date])[0]!.bays.find((b) => b.id === input.bayId);
+        const free = (await freeBays(tdb, round, [date]))[0]!.bays.find(
+          (b) => b.id === input.bayId,
+        );
         // Never over-book: the bay must be free that day (also enforced by the DB at publish).
         if (!free) throw businessRule('BAY_NOT_FREE', 'That bay is not free on that day.');
         bayCode = free.code;
@@ -230,11 +242,13 @@ export function overrideAllocation(
         after = { outcome: 'waitlisted', bayId: null };
       }
 
-      tx.update(allocations)
+      await tx
+        .update(allocations)
         .set({ ...after, reasonText: overrideReason(input.action, date, bayCode) })
         .where(eq(allocations.id, allocationId))
         .run();
-      tx.insert(overrides)
+      await tx
+        .insert(overrides)
         .values({
           allocationId,
           adminId: actor.id,
@@ -244,7 +258,7 @@ export function overrideAllocation(
           createdAt: now,
         })
         .run();
-      writeAudit(
+      await writeAudit(
         tx,
         {
           siteId: actor.siteId,

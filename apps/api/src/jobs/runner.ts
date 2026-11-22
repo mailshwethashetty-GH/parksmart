@@ -8,22 +8,29 @@ import { isUniqueViolation } from '../services/_scope';
 
 export type JobOutcome<T> = { ran: true; result: T } | { ran: false };
 
-export function runOnce<T>(db: Db, jobKey: string, now: Date, fn: () => T): JobOutcome<T> {
+export async function runOnce<T>(
+  db: Db,
+  jobKey: string,
+  now: Date,
+  fn: () => T,
+): Promise<JobOutcome<Awaited<T>>> {
   try {
-    db.insert(jobRuns).values({ jobKey, startedAt: now, status: 'running' }).run();
+    await db.insert(jobRuns).values({ jobKey, startedAt: now, status: 'running' }).run();
   } catch (err) {
     if (isUniqueViolation(err)) return { ran: false };
     throw err;
   }
   try {
-    const result = fn();
-    db.update(jobRuns)
+    const result = await fn();
+    await db
+      .update(jobRuns)
       .set({ status: 'succeeded', finishedAt: new Date(now.getTime()) })
       .where(eq(jobRuns.jobKey, jobKey))
       .run();
     return { ran: true, result };
   } catch (err) {
-    db.update(jobRuns)
+    await db
+      .update(jobRuns)
       .set({ status: 'failed', finishedAt: new Date(now.getTime()), error: String(err) })
       .where(eq(jobRuns.jobKey, jobKey))
       .run();

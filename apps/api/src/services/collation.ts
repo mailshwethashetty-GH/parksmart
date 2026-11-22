@@ -36,14 +36,14 @@ import { loadSite } from './site';
 const POOL_TYPES: BayType[] = ['car', 'ev'];
 const FORECAST_WEEKS = 4;
 
-export function getCollation(
+export async function getCollation(
   db: Db,
   siteId: string,
   now: Date,
   from: IsoDate | undefined,
   days: number,
-): CollationResponse {
-  const site = loadSite(db, siteId);
+): Promise<CollationResponse> {
+  const site = await loadSite(db, siteId);
   const today = siteLocalDate(now, site.timezone);
   const start = from ?? today;
   const dates: IsoDate[] = [];
@@ -52,13 +52,13 @@ export function getCollation(
   }
   const end = dates.at(-1)!;
 
-  const bayRows = db
+  const bayRows = await db
     .select()
     .from(bays)
     .where(and(eq(bays.siteId, siteId), eq(bays.active, true)))
     .all();
   const types = [...new Set(bayRows.map((b) => b.bayType))].sort();
-  const blocks = db
+  const blocks = await db
     .select()
     .from(bayBlocks)
     .where(
@@ -70,7 +70,7 @@ export function getCollation(
       ),
     )
     .all();
-  const reqRows = db
+  const reqRows = await db
     .select({ date: requests.date, bayType: requests.bayType, status: requests.status })
     .from(requests)
     .where(
@@ -81,7 +81,7 @@ export function getCollation(
       ),
     )
     .all();
-  const held = db
+  const held = await db
     .select({ date: bookings.date, bayType: bays.bayType })
     .from(bookings)
     .innerJoin(bays, eq(bays.id, bookings.bayId))
@@ -93,7 +93,7 @@ export function getCollation(
       ),
     )
     .all();
-  const waiting = db
+  const waiting = await db
     .select({ date: waitlist.date, bayType: waitlist.bayType })
     .from(waitlist)
     .where(and(eq(waitlist.siteId, siteId), inArray(waitlist.date, dates)))
@@ -103,7 +103,7 @@ export function getCollation(
   const pastDates = dates.flatMap((d) =>
     Array.from({ length: FORECAST_WEEKS }, (_, i) => addDays(d, -7 * (i + 1))),
   );
-  const past = db
+  const past = await db
     .select({ date: requests.date, bayType: requests.bayType, n: count() })
     .from(requests)
     .where(
@@ -115,14 +115,14 @@ export function getCollation(
     )
     .groupBy(requests.date, requests.bayType)
     .all();
-  const firstData = db
+  const firstData = await db
     .select({ date: requests.date })
     .from(requests)
     .where(eq(requests.siteId, siteId))
     .orderBy(requests.date)
     .get();
 
-  const roundRows = db
+  const roundRows = await db
     .select({
       id: rounds.id,
       roundType: rounds.roundType,
@@ -189,14 +189,14 @@ export function getCollation(
   };
 }
 
-export function listRounds(
+export async function listRounds(
   db: Db,
   siteId: string,
   now: Date,
   status: 'pending_review' | 'published' | undefined,
   limit: number,
-): RoundSummary[] {
-  const rows = db
+): Promise<RoundSummary[]> {
+  const rows = await db
     .select()
     .from(rounds)
     .where(and(eq(rounds.siteId, siteId), status ? eq(rounds.status, status) : undefined))
@@ -204,7 +204,7 @@ export function listRounds(
     .limit(limit)
     .all();
   const tallies = rows.length
-    ? db
+    ? await db
         .select({ roundId: allocations.roundId, outcome: allocations.outcome, n: count() })
         .from(allocations)
         .where(

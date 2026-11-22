@@ -36,14 +36,14 @@ import { loadSite } from './site';
 
 type VersionRow = typeof policyVersions.$inferSelect;
 
-function sitePolicy(db: Db, siteId: string) {
-  const policy = db.select().from(policies).where(eq(policies.siteId, siteId)).get();
+async function sitePolicy(db: Db, siteId: string) {
+  const policy = await db.select().from(policies).where(eq(policies.siteId, siteId)).get();
   if (!policy) throw notFound('Policy');
   return policy;
 }
 
-function versionRows(db: Db, policyId: string): VersionRow[] {
-  return db
+async function versionRows(db: Db, policyId: string): Promise<VersionRow[]> {
+  return await db
     .select()
     .from(policyVersions)
     .where(eq(policyVersions.policyId, policyId))
@@ -80,8 +80,8 @@ function statuses(rows: VersionRow[], currentWeek: string): Map<string, PolicyVe
   return result;
 }
 
-const currentWeekFor = (db: Db, siteId: string, now: Date) =>
-  weekStart(siteLocalDate(now, loadSite(db, siteId).timezone));
+const currentWeekFor = async (db: Db, siteId: string, now: Date) =>
+  weekStart(siteLocalDate(now, (await loadSite(db, siteId)).timezone));
 
 function summary(r: VersionRow, status: PolicyVersionStatus): PolicyVersionSummary {
   return {
@@ -94,34 +94,39 @@ function summary(r: VersionRow, status: PolicyVersionStatus): PolicyVersionSumma
   };
 }
 
-function rulesOf(db: Db, versionId: string): RuleInput[] {
-  return db
-    .select()
-    .from(rules)
-    .where(eq(rules.policyVersionId, versionId))
-    .orderBy(asc(rules.order))
-    .all()
-    .map((r) => ({
-      key: r.key as RuleInput['key'],
-      ruleType: r.ruleType,
-      label: r.label,
-      weight: r.weight,
-      order: r.order,
-      enabled: r.enabled,
-      config: r.configJson,
-    }));
+async function rulesOf(db: Db, versionId: string): Promise<RuleInput[]> {
+  return (
+    await db
+      .select()
+      .from(rules)
+      .where(eq(rules.policyVersionId, versionId))
+      .orderBy(asc(rules.order))
+      .all()
+  ).map((r) => ({
+    key: r.key as RuleInput['key'],
+    ruleType: r.ruleType,
+    label: r.label,
+    weight: r.weight,
+    order: r.order,
+    enabled: r.enabled,
+    config: r.configJson,
+  }));
 }
 
-function guardrailIssues(db: Db, siteId: string, ruleList: RuleInput[]): PolicyIssue[] {
-  const { settings } = loadSite(db, siteId);
+async function guardrailIssues(
+  db: Db,
+  siteId: string,
+  ruleList: RuleInput[],
+): Promise<PolicyIssue[]> {
+  const { settings } = await loadSite(db, siteId);
   return validatePolicy(ruleList, settings.maxFactorWeightPercent);
 }
 
-export function getPolicy(db: Db, siteId: string, now: Date) {
-  const policy = sitePolicy(db, siteId);
-  const site = loadSite(db, siteId);
-  const rows = versionRows(db, policy.id);
-  const status = statuses(rows, currentWeekFor(db, siteId, now));
+export async function getPolicy(db: Db, siteId: string, now: Date) {
+  const policy = await sitePolicy(db, siteId);
+  const site = await loadSite(db, siteId);
+  const rows = await versionRows(db, policy.id);
+  const status = statuses(rows, await currentWeekFor(db, siteId, now));
   const next = nextWeeklyRound(now, site.timezone, site.settings.rounds.weekly);
   return {
     id: policy.id,
@@ -132,9 +137,9 @@ export function getPolicy(db: Db, siteId: string, now: Date) {
   };
 }
 
-function versionRow(db: Db, siteId: string, version: number): VersionRow {
-  const policy = sitePolicy(db, siteId);
-  const row = db
+async function versionRow(db: Db, siteId: string, version: number): Promise<VersionRow> {
+  const policy = await sitePolicy(db, siteId);
+  const row = await db
     .select()
     .from(policyVersions)
     .where(and(eq(policyVersions.policyId, policy.id), eq(policyVersions.version, version)))
@@ -143,54 +148,58 @@ function versionRow(db: Db, siteId: string, version: number): VersionRow {
   return row;
 }
 
-export function getPolicyVersion(
+export async function getPolicyVersion(
   db: Db,
   siteId: string,
   version: number,
   now: Date,
-): PolicyVersionDetail {
-  const row = versionRow(db, siteId, version);
-  const status = statuses(versionRows(db, row.policyId), currentWeekFor(db, siteId, now));
-  const ruleList = rulesOf(db, row.id);
+): Promise<PolicyVersionDetail> {
+  const row = await versionRow(db, siteId, version);
+  const status = statuses(
+    await versionRows(db, row.policyId),
+    await currentWeekFor(db, siteId, now),
+  );
+  const ruleList = await rulesOf(db, row.id);
   return {
     ...summary(row, status.get(row.id)!),
     rules: ruleList,
     plainLanguage:
       row.plainLanguage ??
       describePolicy(ruleList, { version: row.version, effectiveFromWeek: row.effectiveFromWeek }),
-    issues: guardrailIssues(db, siteId, ruleList),
+    issues: await guardrailIssues(db, siteId, ruleList),
   };
 }
 
-function draftRow(db: Db, siteId: string, version: number): VersionRow {
-  const row = versionRow(db, siteId, version);
+async function draftRow(db: Db, siteId: string, version: number): Promise<VersionRow> {
+  const row = await versionRow(db, siteId, version);
   if (row.publishedAt) {
     throw conflict(`Version ${version} is published and cannot be changed. Create a new draft.`);
   }
   return row;
 }
 
-export function createDraft(db: Db, actor: Actor, now: Date): PolicyVersionDetail {
-  const policy = sitePolicy(db, actor.siteId);
-  const rows = versionRows(db, policy.id);
+export async function createDraft(db: Db, actor: Actor, now: Date): Promise<PolicyVersionDetail> {
+  const policy = await sitePolicy(db, actor.siteId);
+  const rows = await versionRows(db, policy.id);
   const existing = rows.find((r) => !r.publishedAt);
   if (existing)
     throw conflict(`Draft version ${existing.version} already exists. Edit or discard it first.`);
   const latest = rows[0];
-  const copied = latest ? rulesOf(db, latest.id) : [];
+  const copied = latest ? await rulesOf(db, latest.id) : [];
   const version = (latest?.version ?? 0) + 1;
-  db.transaction((tx) => {
-    const created = tx
+  await db.transaction(async (tx) => {
+    const created = await tx
       .insert(policyVersions)
       .values({ policyId: policy.id, version, createdAt: now })
       .returning({ id: policyVersions.id })
       .get();
     if (copied.length) {
-      tx.insert(rules)
+      await tx
+        .insert(rules)
         .values(copied.map((r) => ({ ...toRow(r), policyVersionId: created.id })))
         .run();
     }
-    writeAudit(
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -203,7 +212,7 @@ export function createDraft(db: Db, actor: Actor, now: Date): PolicyVersionDetai
       now,
     );
   });
-  return getPolicyVersion(db, actor.siteId, version, now);
+  return await getPolicyVersion(db, actor.siteId, version, now);
 }
 
 const toRow = (r: RuleInput) => ({
@@ -216,23 +225,24 @@ const toRow = (r: RuleInput) => ({
   enabled: r.enabled,
 });
 
-export function updateDraftRules(
+export async function updateDraftRules(
   db: Db,
   actor: Actor,
   version: number,
   ruleList: RuleInput[],
   now: Date,
-): PolicyVersionDetail {
-  const row = draftRow(db, actor.siteId, version);
-  const before = rulesOf(db, row.id);
-  db.transaction((tx) => {
-    tx.delete(rules).where(eq(rules.policyVersionId, row.id)).run();
+): Promise<PolicyVersionDetail> {
+  const row = await draftRow(db, actor.siteId, version);
+  const before = await rulesOf(db, row.id);
+  await db.transaction(async (tx) => {
+    await tx.delete(rules).where(eq(rules.policyVersionId, row.id)).run();
     if (ruleList.length) {
-      tx.insert(rules)
+      await tx
+        .insert(rules)
         .values(ruleList.map((r) => ({ ...toRow(r), policyVersionId: row.id })))
         .run();
     }
-    writeAudit(
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -246,18 +256,24 @@ export function updateDraftRules(
       now,
     );
   });
-  return getPolicyVersion(db, actor.siteId, version, now);
+  return await getPolicyVersion(db, actor.siteId, version, now);
 }
 
-export function discardDraft(db: Db, actor: Actor, version: number, now: Date): void {
-  const row = draftRow(db, actor.siteId, version);
-  const before = rulesOf(db, row.id);
-  db.transaction((tx) => {
-    tx.delete(rules).where(eq(rules.policyVersionId, row.id)).run();
-    tx.delete(policyVersions)
+export async function discardDraft(
+  db: Db,
+  actor: Actor,
+  version: number,
+  now: Date,
+): Promise<void> {
+  const row = await draftRow(db, actor.siteId, version);
+  const before = await rulesOf(db, row.id);
+  await db.transaction(async (tx) => {
+    await tx.delete(rules).where(eq(rules.policyVersionId, row.id)).run();
+    await tx
+      .delete(policyVersions)
       .where(and(eq(policyVersions.id, row.id), isNull(policyVersions.publishedAt)))
       .run();
-    writeAudit(
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -272,31 +288,32 @@ export function discardDraft(db: Db, actor: Actor, version: number, now: Date): 
   });
 }
 
-export function publishDraft(
+export async function publishDraft(
   db: Db,
   actor: Actor,
   version: number,
   reason: string,
   now: Date,
-): PolicyVersionDetail {
-  const row = draftRow(db, actor.siteId, version);
-  const ruleList = rulesOf(db, row.id);
-  const issues = guardrailIssues(db, actor.siteId, ruleList);
+): Promise<PolicyVersionDetail> {
+  const row = await draftRow(db, actor.siteId, version);
+  const ruleList = await rulesOf(db, row.id);
+  const issues = await guardrailIssues(db, actor.siteId, ruleList);
   if (issues.length > 0) {
     throw businessRule(issues[0]!.code, issues[0]!.message, { issues });
   }
-  const feasibility = checkFeasibility(db, actor.siteId, ruleList);
+  const feasibility = await checkFeasibility(db, actor.siteId, ruleList);
   if (feasibility.blocking) {
     const blocked = feasibility.items.flatMap((i) =>
       i.issues.filter((x) => x.severity === 'block').map((x) => ({ ...x, ruleKey: i.key })),
     );
     throw businessRule('RULE_FEASIBILITY_BLOCKED', blocked[0]!.message, { issues: blocked });
   }
-  const site = loadSite(db, actor.siteId);
+  const site = await loadSite(db, actor.siteId);
   const { targetWeek } = nextWeeklyRound(now, site.timezone, site.settings.rounds.weekly);
   const plainLanguage = describePolicy(ruleList, { version, effectiveFromWeek: targetWeek });
-  db.transaction((tx) => {
-    tx.update(policyVersions)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(policyVersions)
       .set({
         effectiveFromWeek: targetWeek,
         publishedAt: now,
@@ -305,7 +322,7 @@ export function publishDraft(
       })
       .where(and(eq(policyVersions.id, row.id), isNull(policyVersions.publishedAt)))
       .run();
-    writeAudit(
+    await writeAudit(
       tx,
       {
         siteId: actor.siteId,
@@ -319,17 +336,21 @@ export function publishDraft(
       now,
     );
   });
-  return getPolicyVersion(db, actor.siteId, version, now);
+  return await getPolicyVersion(db, actor.siteId, version, now);
 }
 
 /** The policy in force this week, in plain language, for every employee. */
-export function getCurrentPolicy(db: Db, siteId: string, now: Date): CurrentPolicyResponse {
-  const policy = sitePolicy(db, siteId);
-  const rows = versionRows(db, policy.id);
-  const status = statuses(rows, currentWeekFor(db, siteId, now));
+export async function getCurrentPolicy(
+  db: Db,
+  siteId: string,
+  now: Date,
+): Promise<CurrentPolicyResponse> {
+  const policy = await sitePolicy(db, siteId);
+  const rows = await versionRows(db, policy.id);
+  const status = statuses(rows, await currentWeekFor(db, siteId, now));
   const active = rows.find((r) => status.get(r.id) === 'active');
   if (!active) throw notFound('Policy in force');
-  const ruleList = rulesOf(db, active.id).filter((r) => r.enabled);
+  const ruleList = (await rulesOf(db, active.id)).filter((r) => r.enabled);
   return {
     version: active.version,
     effectiveFromWeek: active.effectiveFromWeek!,
@@ -353,10 +374,10 @@ export function getCurrentPolicy(db: Db, siteId: string, now: Date): CurrentPoli
  * rules. Rounds use this, so a policy published mid-week never changes a round for
  * the current week (non-negotiable #8).
  */
-export function policyVersionForWeek(db: Db, siteId: string, week: string) {
-  const policy = sitePolicy(db, siteId);
-  const rows = versionRows(db, policy.id);
+export async function policyVersionForWeek(db: Db, siteId: string, week: string) {
+  const policy = await sitePolicy(db, siteId);
+  const rows = await versionRows(db, policy.id);
   const active = rows.find((r) => statuses(rows, week).get(r.id) === 'active');
   if (!active) throw notFound(`Policy in force for the week of ${week}`);
-  return { version: active, rules: rulesOf(db, active.id) };
+  return { version: active, rules: await rulesOf(db, active.id) };
 }

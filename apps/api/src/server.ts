@@ -16,11 +16,11 @@ async function main() {
     environment: env.NODE_ENV,
     release: process.env.APP_VERSION,
   });
-  const db = createDb(env.DATABASE_PATH);
-  runMigrations(db);
+  const db = await createDb(env.db);
+  await runMigrations(db);
   const setup =
     env.SETUP_ORG_NAME && env.SETUP_SITE_NAME && env.ORG_EMAIL_DOMAIN
-      ? setupOrganisation(db, {
+      ? await setupOrganisation(db, {
           orgName: env.SETUP_ORG_NAME,
           siteName: env.SETUP_SITE_NAME,
           emailDomain: env.ORG_EMAIL_DOMAIN,
@@ -53,8 +53,8 @@ async function main() {
     db.$client.close();
     process.exit(0);
   };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
 
   await app.listen({
     port: env.PORT,
@@ -62,7 +62,7 @@ async function main() {
   });
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error(err instanceof EnvError ? `Refusing to start: ${err.message}` : err);
   process.exit(1);
 });

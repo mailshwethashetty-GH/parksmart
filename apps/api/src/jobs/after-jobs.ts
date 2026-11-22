@@ -8,23 +8,26 @@ import type { FastifyInstance } from 'fastify';
 import { rewriteRoundReasons } from '../ai/reasons';
 import type { JobEvent } from './round-jobs';
 
-export function usersInRound(db: Db, roundId: string): string[] {
-  return db
-    .select({ userId: requests.userId })
-    .from(allocations)
-    .innerJoin(requests, eq(requests.id, allocations.requestId))
-    .where(eq(allocations.roundId, roundId))
-    .all()
-    .map((r) => r.userId);
+export async function usersInRound(db: Db, roundId: string): Promise<string[]> {
+  return (
+    await db
+      .select({ userId: requests.userId })
+      .from(allocations)
+      .innerJoin(requests, eq(requests.id, allocations.requestId))
+      .where(eq(allocations.roundId, roundId))
+      .all()
+  ).map((r) => r.userId);
 }
 
-export function userOfOffer(db: Db, offerId: string): string | undefined {
-  return db
-    .select({ userId: requests.userId })
-    .from(offers)
-    .innerJoin(requests, eq(requests.id, offers.requestId))
-    .where(eq(offers.id, offerId))
-    .get()?.userId;
+export async function userOfOffer(db: Db, offerId: string): Promise<string | undefined> {
+  return (
+    await db
+      .select({ userId: requests.userId })
+      .from(offers)
+      .innerJoin(requests, eq(requests.id, offers.requestId))
+      .where(eq(offers.id, offerId))
+      .get()
+  )?.userId;
 }
 
 export function roundIdsOf(events: JobEvent[]): string[] {
@@ -33,11 +36,11 @@ export function roundIdsOf(events: JobEvent[]): string[] {
     .filter((id): id is string => !!id);
 }
 
-export function afterJobs(app: FastifyInstance, events: JobEvent[]): void {
+export async function afterJobs(app: FastifyInstance, events: JobEvent[]): Promise<void> {
   const users: string[] = [];
-  for (const roundId of roundIdsOf(events)) users.push(...usersInRound(app.db, roundId));
+  for (const roundId of roundIdsOf(events)) users.push(...(await usersInRound(app.db, roundId)));
   for (const e of events.filter((x) => x.job === 'offer-expiry')) {
-    const user = userOfOffer(app.db, (e.detail as { offerId: string }).offerId);
+    const user = await userOfOffer(app.db, (e.detail as { offerId: string }).offerId);
     if (user) users.push(user);
   }
   for (const e of events.filter((x) => x.job === 'auto-release')) {
@@ -47,15 +50,20 @@ export function afterJobs(app: FastifyInstance, events: JobEvent[]): void {
 
   // Only newly run rounds (not auto-published older ones) need reasons rewritten.
   const ran = events.filter((e) => e.job.endsWith('-round'));
+  const rewrites: Promise<void>[] = [];
   for (const roundId of roundIdsOf(ran)) {
-    void rewriteRoundReasons(app.db, app.ai, roundId)
-      .then((summary) => {
+    const rewrite = rewriteRoundReasons(app.db, app.ai, roundId)
+      .then(async (summary) => {
         if (summary.status === 'done') app.log.info({ roundId, ...summary }, 'reasons rewritten');
         // Rewritten reasons are new information for employees too.
         if (summary.status === 'done' && summary.rewritten > 0) {
-          app.events.notifyUsers(usersInRound(app.db, roundId));
+          app.events.notifyUsers(await usersInRound(app.db, roundId));
         }
       })
       .catch((err) => app.log.error({ err, roundId }, 'reason rewrite failed'));
+    rewrites.push(rewrite);
   }
+  // A serverless function is frozen once it responds, so wait there; a long-running
+  // server lets the rewrite finish in the background.
+  if (app.env.serverless) await Promise.all(rewrites);
 }

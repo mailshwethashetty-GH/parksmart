@@ -21,7 +21,10 @@ Impact: High / Medium / Low. Risks also carry a likelihood. Update **Status** wh
 | R11 | Badly tuned weights produce unfair outcomes | Medium | High | 50% cap; impact simulation; fairness-spread metric | Open |
 | R12 | Admin does not approve a weekly or daily round by its deadline, delaying results | Medium | High | Reminders, backup admins, "results delayed" notice, day-start auto-publish (ADR-008) | Open |
 | R13 | The single host or its disk fails during the pilot | Low | High | Litestream streams every write to S3 (30 days); restore drill before launch and monthly (runbook `14`); uptime monitor and Sentry | Open |
-| R14 | The production image has not been built on this machine (no Docker locally) | Medium | Medium | CI builds the image and checks it starts and runs first-run setup; the runtime layout was checked locally with `pnpm deploy` | Open |
+| R14 | The production image has not been built on this machine (no Docker locally) | Medium | Medium | CI builds the image and checks it starts and runs first-run setup; the runtime layout was checked locally with `pnpm deploy` | Closed: first CI run built the image and passed the health check (2026-11-22) |
+| R15 | GitHub delays or skips scheduled workflows, so check-in release, offer expiry and round times run late on Vercel (ADR-016) | Medium | Medium | Ticks every 5 min; jobs idempotent and catch up on the next tick; Vercel daily cron as backstop; manual "Run workflow" in Actions. For a real pilot use the Docker deployment (Croner every minute) | Open |
+| R16 | Demo mode lets anyone with the URL act as a sample person (ADR-017) | Medium | Medium | Limited to `@parksmart.test` sample people and sample data; real accounts never reachable; `DEMO_MODE` off for any real pilot | Open |
+| R17 | Turso free-tier limits (rows read/written, storage) or added latency per statement | Low | Medium | Pilot-scale data is small; function and database both in Mumbai; watch Turso usage in its dashboard | Open |
 
 ## Assumptions
 

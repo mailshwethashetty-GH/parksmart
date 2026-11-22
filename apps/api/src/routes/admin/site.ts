@@ -36,23 +36,25 @@ export const adminSiteRoutes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('preHandler', requireRole('admin'));
   const tags = ['admin: site'];
 
-  app.get('/site', { schema: { tags, response: { 200: siteResponseSchema } } }, async (req) =>
-    getSite(app.db, actorOf(req).siteId, app.clock()),
+  app.get(
+    '/site',
+    { schema: { tags, response: { 200: siteResponseSchema } } },
+    async (req) => await getSite(app.db, actorOf(req).siteId, app.clock()),
   );
   app.put(
     '/site/settings',
     { schema: { tags, body: siteSettingsInputSchema, response: { 200: siteResponseSchema } } },
-    async (req) => updateSiteSettings(app.db, actorOf(req), req.body, app.clock()),
+    async (req) => await updateSiteSettings(app.db, actorOf(req), req.body, app.clock()),
   );
 
   app.get('/zones', { schema: { tags, response: { 200: zonesResponseSchema } } }, async (req) => ({
-    items: listZones(app.db, actorOf(req).siteId),
+    items: await listZones(app.db, actorOf(req).siteId),
   }));
   app.post(
     '/zones',
     { schema: { tags, body: zoneCreateSchema, response: { 201: zoneSchema } } },
     async (req, reply) =>
-      reply.status(201).send(createZone(app.db, actorOf(req), req.body, app.clock())),
+      reply.status(201).send(await createZone(app.db, actorOf(req), req.body, app.clock())),
   );
   app.patch(
     '/zones/:id',
@@ -64,19 +66,19 @@ export const adminSiteRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: zoneSchema },
       },
     },
-    async (req) => updateZone(app.db, actorOf(req), req.params.id, req.body, app.clock()),
+    async (req) => await updateZone(app.db, actorOf(req), req.params.id, req.body, app.clock()),
   );
 
   app.get(
     '/bays',
     { schema: { tags, querystring: baysQuerySchema, response: { 200: baysResponseSchema } } },
-    async (req) => ({ items: listBays(app.db, actorOf(req).siteId, req.query.zoneId) }),
+    async (req) => ({ items: await listBays(app.db, actorOf(req).siteId, req.query.zoneId) }),
   );
   app.post(
     '/bays',
     { schema: { tags, body: bayCreateSchema, response: { 201: baySchema } } },
     async (req, reply) =>
-      reply.status(201).send(createBay(app.db, actorOf(req), req.body, app.clock())),
+      reply.status(201).send(await createBay(app.db, actorOf(req), req.body, app.clock())),
   );
   app.post(
     '/bays/bulk',
@@ -84,14 +86,14 @@ export const adminSiteRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) =>
       reply
         .status(201)
-        .send({ items: bulkCreateBays(app.db, actorOf(req), req.body, app.clock()) }),
+        .send({ items: await bulkCreateBays(app.db, actorOf(req), req.body, app.clock()) }),
   );
   app.patch(
     '/bays/:id',
     {
       schema: { tags, params: idParamsSchema, body: bayUpdateSchema, response: { 200: baySchema } },
     },
-    async (req) => updateBay(app.db, actorOf(req), req.params.id, req.body, app.clock()),
+    async (req) => await updateBay(app.db, actorOf(req), req.params.id, req.body, app.clock()),
   );
 
   app.get(
@@ -104,7 +106,7 @@ export const adminSiteRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => ({
-      items: listBayBlocks(app.db, actorOf(req).siteId, req.query.from, req.query.to),
+      items: await listBayBlocks(app.db, actorOf(req).siteId, req.query.from, req.query.to),
     }),
   );
   app.post(
@@ -113,13 +115,13 @@ export const adminSiteRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) =>
       reply
         .status(201)
-        .send({ items: createBayBlocks(app.db, actorOf(req), req.body, app.clock()) }),
+        .send({ items: await createBayBlocks(app.db, actorOf(req), req.body, app.clock()) }),
   );
   app.delete(
     '/bay-blocks/:id',
     { schema: { tags, params: idParamsSchema, response: { 200: okResponseSchema } } },
     async (req) => {
-      deleteBayBlock(app.db, actorOf(req), req.params.id, app.clock());
+      await deleteBayBlock(app.db, actorOf(req), req.params.id, app.clock());
       return { ok: true as const };
     },
   );

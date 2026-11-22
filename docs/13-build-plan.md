@@ -15,6 +15,7 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 | M6 | Check-in (FR-21, FR-22) | Done (2026-11-22). Includes bay-sticker check-in and printable stickers (supports D4). The < 5 s on 4G check is in M8 |
 | M7 | Notifications, reports, privacy, employee profile (FR-25, FR-28 P0, DPDP) | Done (2026-11-22). Includes approval reminders (FR-16), consent gate, inbox bell, `/admin/analytics` |
 | M8 | Pilot hardening and deployment | Done (2026-11-22) for everything in this repo: e2e + axe + performance checks, Docker/Caddy/Litestream, Sentry, CI jobs, runbooks, SSO from env, first-run setup, roles. Waiting on D2 (real IdP sign-in), real bay data (admin enters it) and D4 (stickers printed, staff briefed) |
+| M9 | Capstone hosting: Vercel + Turso (ADR-016, ADR-017) | In progress (2026-11-22). Code done: libSQL/async DB layer, Vercel build, `/cron/tick` + GitHub Actions, demo mode, Google sign-in via login options. Deploy waits on the Turso database, Vercel project settings and a Google OAuth client |
 
 ## M0 — Foundations (FR-29)
 
@@ -77,6 +78,14 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 - Playwright end-to-end tests for the 7 flows in `10-ux-flows.md`, with axe checks; p95 < 500 ms check for booking and check-in.
 - Docker + Caddy + Litestream; Sentry; uptime monitor.
 - Real SSO against the site IdP (D2); real bay data; security-staff runbook and printed QR codes (D4).
+
+## M9 — Capstone hosting on Vercel + Turso
+
+- Database layer on libSQL (`@libsql/client`), all calls async; Turso when `DATABASE_URL` is set. All unit and e2e tests pass on libSQL.
+- Vercel Build Output (`scripts/vercel-build.mjs`): static web + one bundled API function in `bom1`.
+- Scheduled jobs via `GET /api/v1/cron/tick` from GitHub Actions every 5 min; SSE replaced by polling on Vercel.
+- `DEMO_MODE` sample-people login and `ALLOWED_EMAILS` for reviewers' Google accounts; login screen driven by `/login-options`.
+- Exit: the deployed site passes `/health`, demo sign-in works for each role, a tick runs from GitHub Actions, Google sign-in works for an allowlisted account.
 
 ## After launch (P1)
 

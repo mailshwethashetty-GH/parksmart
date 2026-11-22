@@ -32,13 +32,13 @@ const RETENTION_MONTHS = 12;
 
 export type NotificationEvent = { job: string; key: string; userIds: string[] };
 
-export function notificationJobs(db: Db, now: Date): NotificationEvent[] {
+export async function notificationJobs(db: Db, now: Date): Promise<NotificationEvent[]> {
   const events: NotificationEvent[] = [];
-  for (const site of db.select().from(sites).all()) {
+  for (const site of await db.select().from(sites).all()) {
     const today = siteLocalDate(now, site.timezone);
 
     // Release warnings for today's bookings still waiting for check-in.
-    for (const b of db
+    for (const b of await db
       .select()
       .from(bookings)
       .where(
@@ -49,18 +49,16 @@ export function notificationJobs(db: Db, now: Date): NotificationEvent[] {
         ),
       )
       .all()) {
-      const deadline = deadlineFor(db, b);
+      const deadline = await deadlineFor(db, b);
       const msLeft = deadline.getTime() - now.getTime();
       if (msLeft <= 0 || msLeft > WARN_BEFORE_MS) continue;
       // Keyed on the deadline, so a "running late" extension earns a fresh warning.
       const key = `release-warning:${b.id}:${deadline.getTime()}`;
-      const out = runOnce(db, key, now, () => {
-        const bayCode = db
-          .select({ code: bays.code })
-          .from(bays)
-          .where(eq(bays.id, b.bayId))
-          .get()?.code;
-        queueNotification(db, {
+      const out = await runOnce(db, key, now, async () => {
+        const bayCode = (
+          await db.select({ code: bays.code }).from(bays).where(eq(bays.id, b.bayId)).get()
+        )?.code;
+        await queueNotification(db, {
           userId: b.userId,
           kind: 'release_warning',
           payload: { date: b.date, bayCode, checkInBy: deadline.toISOString() },
@@ -71,13 +69,14 @@ export function notificationJobs(db: Db, now: Date): NotificationEvent[] {
     }
 
     // Approval reminders for rounds waiting for review.
-    const admins = db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.siteId, site.id), eq(users.role, 'admin'), eq(users.active, true)))
-      .all()
-      .map((u) => u.id);
-    for (const r of db
+    const admins = (
+      await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.siteId, site.id), eq(users.role, 'admin'), eq(users.active, true)))
+        .all()
+    ).map((u) => u.id);
+    for (const r of await db
       .select()
       .from(rounds)
       .where(and(eq(rounds.siteId, site.id), eq(rounds.status, 'pending_review')))
@@ -98,9 +97,9 @@ export function notificationJobs(db: Db, now: Date): NotificationEvent[] {
         const label = `${r.roundType === 'weekly' ? 'Weekly' : 'Daily'} round for ${formatDayShort(r.targetDateFrom)}${
           r.targetDateTo !== r.targetDateFrom ? ` – ${formatDayShort(r.targetDateTo)}` : ''
         }`;
-        const out = runOnce(db, key, now, () => {
+        const out = await runOnce(db, key, now, async () => {
           for (const adminId of admins) {
-            queueNotification(db, {
+            await queueNotification(db, {
               userId: adminId,
               kind: 'approval_reminder',
               payload: {
@@ -119,13 +118,15 @@ export function notificationJobs(db: Db, now: Date): NotificationEvent[] {
 
     // Audit retention, once a day per site (the append-only trigger allows only this).
     const key = `audit-retention:${site.id}:${today}`;
-    runOnce(db, key, now, () => {
+    await runOnce(db, key, now, async () => {
       const cutoff = new Date(now);
       cutoff.setUTCMonth(cutoff.getUTCMonth() - RETENTION_MONTHS);
-      db.delete(auditLog)
+      await db
+        .delete(auditLog)
         .where(and(eq(auditLog.siteId, site.id), lt(auditLog.at, cutoff)))
         .run();
-      db.delete(aiLogs)
+      await db
+        .delete(aiLogs)
         .where(and(eq(aiLogs.siteId, site.id), lte(aiLogs.createdAt, cutoff)))
         .run();
     });

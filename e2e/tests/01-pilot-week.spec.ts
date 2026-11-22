@@ -42,7 +42,7 @@ test.afterAll(() => {
 
 test('login screen is accessible', async ({ page }) => {
   await page.goto('/login');
-  await expect(page.getByRole('button', { name: 'Continue with SSO' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Meera Admin' })).toBeVisible();
   await expectAccessible(page, '/login');
 });
 

@@ -44,17 +44,21 @@ const SEED_USERS: SeedUser[] = [
   { name: 'Farhan Ali', local: 'farhan', role: 'employee' },
 ];
 
-export function isSeeded(db: Db): boolean {
-  return db.select({ id: s.orgs.id }).from(s.orgs).limit(1).all().length > 0;
+export async function isSeeded(db: Db): Promise<boolean> {
+  return (await db.select({ id: s.orgs.id }).from(s.orgs).limit(1).all()).length > 0;
 }
 
-export function seed(db: Db, now = new Date()): { orgId: string; siteId: string } {
-  return db.transaction((tx) => {
+export async function seed(db: Db, now = new Date()): Promise<{ orgId: string; siteId: string }> {
+  return await db.transaction(async (tx) => {
     const orgId = createId();
     const siteId = createId();
 
-    tx.insert(s.orgs).values({ id: orgId, name: 'Demo GCC', emailDomain: SEED_EMAIL_DOMAIN }).run();
-    tx.insert(s.sites)
+    await tx
+      .insert(s.orgs)
+      .values({ id: orgId, name: 'Demo GCC', emailDomain: SEED_EMAIL_DOMAIN })
+      .run();
+    await tx
+      .insert(s.sites)
       .values({
         id: siteId,
         orgId,
@@ -66,7 +70,8 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
       .run();
 
     const zoneIds = { b1: createId(), b2: createId(), tw: createId() };
-    tx.insert(s.zones)
+    await tx
+      .insert(s.zones)
       .values([
         { id: zoneIds.b1, orgId, siteId, name: 'Basement 1', kind: 'basement' },
         { id: zoneIds.b2, orgId, siteId, name: 'Basement 2', kind: 'basement' },
@@ -91,13 +96,14 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
     add(zoneIds.b1, 'B1-EV', 10, 'ev');
     add(zoneIds.b1, 'B1-AX', 5, 'accessible');
     add(zoneIds.b2, 'B2', 60, 'car');
-    tx.insert(s.bays).values(bays).run();
+    await tx.insert(s.bays).values(bays).run();
 
     const userIds = new Map<string, string>();
     for (const u of SEED_USERS) {
       const userId = createId();
       userIds.set(u.local, userId);
-      tx.insert(s.users)
+      await tx
+        .insert(s.users)
         .values({
           id: userId,
           name: u.name,
@@ -109,7 +115,8 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
         })
         .run();
       if (u.role !== 'employee') continue;
-      tx.insert(s.userProfiles)
+      await tx
+        .insert(s.userProfiles)
         .values({
           userId,
           distanceBand: u.distance ?? null,
@@ -117,10 +124,12 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
           joinDate: u.joinDate ?? null,
         })
         .run();
-      tx.insert(s.vehicles)
+      await tx
+        .insert(s.vehicles)
         .values({ userId, type: 'car', isEv: u.ev ?? false })
         .run();
-      tx.insert(s.consents)
+      await tx
+        .insert(s.consents)
         .values([
           { userId, purpose: 'parking_allocation', grantedAt: now },
           { userId, purpose: 'vehicle_details', grantedAt: now }, // the seed stores a vehicle
@@ -129,9 +138,10 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
     }
 
     const adminId = userIds.get('admin')!;
-    insertDefaultPolicy(tx, { orgId, siteId, publishedBy: adminId, now });
+    await insertDefaultPolicy(tx, { orgId, siteId, publishedBy: adminId, now });
 
-    tx.insert(s.auditLog)
+    await tx
+      .insert(s.auditLog)
       .values({
         siteId,
         actorId: null,
@@ -151,16 +161,17 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 /** The default policy (v1, published, in force from the current week) for a new site. */
-export function insertDefaultPolicy(
+export async function insertDefaultPolicy(
   tx: Tx,
   opts: { orgId: string; siteId: string; publishedBy: string | null; now: Date; timezone?: string },
-): string {
+): Promise<string> {
   const { orgId, siteId, publishedBy, now } = opts;
   const week = weekStart(siteLocalDate(now, opts.timezone ?? DEFAULT_TIMEZONE));
   const policyId = createId();
   const versionId = createId();
-  tx.insert(s.policies).values({ id: policyId, orgId, siteId, name: 'Default policy' }).run();
-  tx.insert(s.policyVersions)
+  await tx.insert(s.policies).values({ id: policyId, orgId, siteId, name: 'Default policy' }).run();
+  await tx
+    .insert(s.policyVersions)
     .values({
       id: versionId,
       policyId,
@@ -174,7 +185,8 @@ export function insertDefaultPolicy(
       }),
     })
     .run();
-  tx.insert(s.rules)
+  await tx
+    .insert(s.rules)
     .values(
       DEFAULT_RULE_CATALOGUE.map((r, order) => ({
         policyVersionId: versionId,

@@ -1,8 +1,8 @@
 import { createDb, runMigrations } from '../client';
-import { databasePathFromEnv } from './env';
+import { dbConfigFromEnv } from './env';
 
-const path = databasePathFromEnv();
-const db = createDb(path);
-runMigrations(db);
+const config = dbConfigFromEnv();
+const db = await createDb(config);
+await runMigrations(db);
 db.$client.close();
-console.log(`Migrations applied to ${path}`);
+console.log(`Migrations applied to ${config.label}`);

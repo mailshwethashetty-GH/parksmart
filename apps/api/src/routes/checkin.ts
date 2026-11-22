@@ -33,7 +33,7 @@ export const checkinRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: parker,
       schema: { tags: ['check-in'], params: idParamsSchema, response: { 200: qrResponseSchema } },
     },
-    async (req) => bookingQr(app.db, actorOf(req), req.params.id, secret),
+    async (req) => await bookingQr(app.db, actorOf(req), req.params.id, secret),
   );
   app.post(
     '/bookings/:id/running-late',
@@ -46,7 +46,7 @@ export const checkinRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      const result = runningLate(app.db, actorOf(req), req.params.id, app.clock());
+      const result = await runningLate(app.db, actorOf(req), req.params.id, app.clock());
       app.events.notifyUsers([actorOf(req).id]);
       return result;
     },
@@ -79,7 +79,7 @@ export const checkinRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: checkinResultSchema },
       },
     },
-    async (req) => scanCheckin(app.db, actorOf(req), req.body.token, secret, app.clock()),
+    async (req) => await scanCheckin(app.db, actorOf(req), req.body.token, secret, app.clock()),
   );
   app.post(
     '/checkins/manual',
@@ -91,7 +91,7 @@ export const checkinRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: checkinResultSchema },
       },
     },
-    async (req) => manualCheckin(app.db, actorOf(req), req.body.bookingId, app.clock()),
+    async (req) => await manualCheckin(app.db, actorOf(req), req.body.bookingId, app.clock()),
   );
   app.get(
     '/gate/today',
@@ -99,7 +99,7 @@ export const checkinRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: gate,
       schema: { tags: ['check-in'], response: { 200: gateTodayResponseSchema } },
     },
-    async (req) => gateToday(app.db, actorOf(req).siteId, app.clock()),
+    async (req) => await gateToday(app.db, actorOf(req).siteId, app.clock()),
   );
 
   // --- admin: printable bay stickers ---
@@ -113,6 +113,6 @@ export const checkinRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: bayQrResponseSchema },
       },
     },
-    async (req) => bayQr(app.db, actorOf(req), req.params.id, secret),
+    async (req) => await bayQr(app.db, actorOf(req), req.params.id, secret),
   );
 };

@@ -20,7 +20,7 @@ export const adminReviewRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/rounds/:id',
     { schema: { tags, params: idParamsSchema, response: { 200: roundDetailSchema } } },
-    async (req) => getRoundDetail(app.db, actorOf(req), req.params.id, app.clock()),
+    async (req) => await getRoundDetail(app.db, actorOf(req), req.params.id, app.clock()),
   );
   app.post(
     '/rounds/:id/approve',
@@ -35,9 +35,9 @@ export const adminReviewRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const actor = actorOf(req);
       const now = app.clock();
-      const affected = approveRound(app.db, actor, req.params.id, now, req.body.note);
+      const affected = await approveRound(app.db, actor, req.params.id, now, req.body.note);
       app.events.notifyUsers(affected);
-      return getRoundDetail(app.db, actor, req.params.id, now);
+      return await getRoundDetail(app.db, actor, req.params.id, now);
     },
   );
   app.post(
@@ -51,7 +51,7 @@ export const adminReviewRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      overrideAllocation(app.db, actorOf(req), req.params.id, req.body, app.clock());
+      await overrideAllocation(app.db, actorOf(req), req.params.id, req.body, app.clock());
       return { ok: true as const };
     },
   );
@@ -59,13 +59,13 @@ export const adminReviewRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/audit',
     { schema: { tags, querystring: auditQuerySchema, response: { 200: auditResponseSchema } } },
-    async (req) => listAudit(app.db, actorOf(req).siteId, req.query),
+    async (req) => await listAudit(app.db, actorOf(req).siteId, req.query),
   );
   app.get(
     '/audit/export',
     { schema: { tags, querystring: auditQuerySchema.omit({ cursor: true, limit: true }) } },
     async (req, reply) => {
-      const csv = exportAuditCsv(app.db, actorOf(req).siteId, req.query);
+      const csv = await exportAuditCsv(app.db, actorOf(req).siteId, req.query);
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', 'attachment; filename="parksmart-audit.csv"')

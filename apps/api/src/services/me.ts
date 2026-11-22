@@ -2,8 +2,8 @@ import { type Db, eq, orgs, sites, users } from '@parksmart/db';
 import type { MeResponse } from '@parksmart/shared';
 import { notFound } from '../lib/errors';
 
-export function getMe(db: Db, userId: string): MeResponse {
-  const row = db
+export async function getMe(db: Db, userId: string): Promise<MeResponse> {
+  const row = await db
     .select({
       id: users.id,
       name: users.name,

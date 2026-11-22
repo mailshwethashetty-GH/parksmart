@@ -1,4 +1,4 @@
-import { auditLog, eq } from '@parksmart/db';
+import { auditLog, eq, users } from '@parksmart/db';
 import { API_BASE, AUTH_BASE, CSRF_HEADER } from '@parksmart/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadEnv } from './config/env';
@@ -37,8 +37,8 @@ describe('system', () => {
 
   it('rate-limits per session, not per shared office IP', async () => {
     const { app } = await setup();
-    const get = (cookie?: string) =>
-      app.inject({
+    const get = async (cookie?: string) =>
+      await app.inject({
         method: 'GET',
         url: `${API_BASE}/csrf-token`,
         headers: cookie ? { cookie } : {},
@@ -251,17 +251,17 @@ describe('CSRF on mutating API routes', () => {
 describe('services', () => {
   it('new SSO users join the org matching their email domain; unknown domains are refused', async () => {
     const { db } = await setup();
-    expect(resolveHomeForEmail(db, 'new.person@PARKSMART.test')).toMatchObject({
+    expect(await resolveHomeForEmail(db, 'new.person@PARKSMART.test')).toMatchObject({
       orgId: expect.any(String),
       siteId: expect.any(String),
     });
-    expect(resolveHomeForEmail(db, 'someone@gmail.com')).toBeNull();
+    expect(await resolveHomeForEmail(db, 'someone@gmail.com')).toBeNull();
   });
 
   it('writeAudit appends an entry with actor, time and reason', async () => {
     const { db } = await setup();
     const at = new Date('2026-11-22T05:00:00Z');
-    writeAudit(
+    await writeAudit(
       db,
       {
         siteId: null,
@@ -273,7 +273,113 @@ describe('services', () => {
       },
       at,
     );
-    const row = db.select().from(auditLog).where(eq(auditLog.action, 'policy.publish')).get();
+    const row = await db.select().from(auditLog).where(eq(auditLog.action, 'policy.publish')).get();
     expect(row).toMatchObject({ actorId: 'u1', reason: 'test', at });
+  });
+});
+
+describe('Vercel + Turso hosting (ADR-016)', () => {
+  const CRON_SECRET = 'cron-secret-0123456789abcdefghijklmnopq';
+  const VERCEL = { VERCEL: '1', CRON_SECRET, DATABASE_URL: 'libsql://parksmart-test.turso.io' };
+
+  it('needs Turso and a cron secret on Vercel', () => {
+    expect(() => loadEnv({ ...TEST_ENV, VERCEL: '1', CRON_SECRET })).toThrow(/DATABASE_URL/);
+    expect(() =>
+      loadEnv({ ...TEST_ENV, VERCEL: '1', DATABASE_URL: 'libsql://x.turso.io' }),
+    ).toThrow(/CRON_SECRET/);
+    const env = loadEnv({ ...TEST_ENV, ...VERCEL, DATABASE_AUTH_TOKEN: 'tok' });
+    expect(env).toMatchObject({
+      serverless: true,
+      db: { url: 'libsql://parksmart-test.turso.io', authToken: 'tok' },
+    });
+    expect(loadEnv(TEST_ENV).db.url).toMatch(/^file:\/.*parksmart\.db$/);
+  });
+
+  it('runs scheduled jobs on /cron/tick only with the secret', async () => {
+    const { app } = await setup(VERCEL);
+    const tick = (authorization?: string) =>
+      app.inject({
+        method: 'GET',
+        url: `${API_BASE}/cron/tick`,
+        headers: authorization ? { authorization } : {},
+      });
+    expect((await tick()).statusCode).toBe(401);
+    expect((await tick('Bearer wrong')).statusCode).toBe(401);
+    const ok = await tick(`Bearer ${CRON_SECRET}`);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({
+      rounds: { ok: true },
+      notifications: { ok: true },
+      recurring: { ok: true },
+    });
+  });
+
+  it('has no tick endpoint without a cron secret', async () => {
+    const { app } = await setup();
+    const res = await app.inject({ method: 'GET', url: `${API_BASE}/cron/tick` });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('answers the live stream with 204 on Vercel (the app polls instead)', async () => {
+    const { app } = await setup(VERCEL);
+    const cookie = await devSignIn(app, 'divya@parksmart.test');
+    const res = await app.inject({
+      method: 'GET',
+      url: `${API_BASE}/stream/me`,
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(204);
+  });
+});
+
+describe('prototype demo mode and sign-in options (ADR-017)', () => {
+  const DEMO = { NODE_ENV: 'production', DEMO_MODE: 'true' };
+
+  it('reports the sign-in methods for the login screen', async () => {
+    const dev = await setup();
+    expect(
+      (await dev.app.inject({ method: 'GET', url: `${API_BASE}/login-options` })).json(),
+    ).toEqual({ sso: null, samplePeople: 'dev' });
+    await dev.app.close();
+    const { app } = await setup({ ...PROD_SSO, DEMO_MODE: 'true' });
+    expect((await app.inject({ method: 'GET', url: `${API_BASE}/login-options` })).json()).toEqual({
+      sso: 'google',
+      samplePeople: 'demo',
+    });
+  });
+
+  it('lets demo mode start in production without SSO, but never dev login', () => {
+    expect(loadEnv({ ...TEST_ENV, ...DEMO })).toMatchObject({
+      demoMode: true,
+      devLoginEnabled: false,
+    });
+    expect(() => loadEnv({ ...TEST_ENV, ...DEMO, DEV_LOGIN_ENABLED: 'true' })).toThrow(
+      /not allowed/,
+    );
+  });
+
+  it('demo sign-in only opens sample people, never a real account', async () => {
+    const { app, db } = await setup(DEMO);
+    await db
+      .update(users)
+      .set({ email: 'real.person@gmail.com' })
+      .where(eq(users.email, 'farhan@parksmart.test'))
+      .run();
+    const list = await app.inject({ method: 'GET', url: `${AUTH_BASE}/dev/users` });
+    const emails: string[] = list.json().items.map((u: { email: string }) => u.email);
+    expect(emails.length).toBeGreaterThan(5);
+    expect(emails.every((e) => e.endsWith('@parksmart.test'))).toBe(true);
+    await expect(devSignIn(app, 'real.person@gmail.com')).rejects.toThrow(/404/);
+    expect(await devSignIn(app, 'admin@parksmart.test')).toMatch(/session_token/);
+  });
+
+  it('lets ALLOWED_EMAILS in from any domain; other domains stay out', async () => {
+    const { db } = await setup();
+    const allowed = ['reviewer@gmail.com'];
+    expect(await resolveHomeForEmail(db, 'Reviewer@gmail.com', allowed)).toMatchObject({
+      orgId: expect.any(String),
+      siteId: expect.any(String),
+    });
+    expect(await resolveHomeForEmail(db, 'someone@gmail.com', allowed)).toBeNull();
   });
 });

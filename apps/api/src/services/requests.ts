@@ -45,7 +45,7 @@ import { deadlineFor } from './checkin';
 import { assertConsent } from './me-profile';
 import { loadSite } from './site';
 
-type Site = ReturnType<typeof loadSite>;
+type Site = Awaited<ReturnType<typeof loadSite>>;
 type RequestRow = typeof requests.$inferSelect;
 type Problem = { date: IsoDate; code: string; message: string };
 
@@ -80,19 +80,20 @@ const EMPTY_CONTEXT: RequestContext = {
   bookings: new Map(),
 };
 
-export function requestContext(db: Db, ids: string[]): RequestContext {
+export async function requestContext(db: Db, ids: string[]): Promise<RequestContext> {
   if (ids.length === 0) return EMPTY_CONTEXT;
   const review = new Map(
-    db
-      .select({ requestId: allocations.requestId, deadline: rounds.approvalDeadline })
-      .from(allocations)
-      .innerJoin(rounds, eq(rounds.id, allocations.roundId))
-      .where(and(eq(rounds.status, 'pending_review'), inArray(allocations.requestId, ids)))
-      .all()
-      .map((r) => [r.requestId, { resultsBy: r.deadline }]),
+    (
+      await db
+        .select({ requestId: allocations.requestId, deadline: rounds.approvalDeadline })
+        .from(allocations)
+        .innerJoin(rounds, eq(rounds.id, allocations.roundId))
+        .where(and(eq(rounds.status, 'pending_review'), inArray(allocations.requestId, ids)))
+        .all()
+    ).map((r) => [r.requestId, { resultsBy: r.deadline }]),
   );
-  const entries = db.select().from(waitlist).where(inArray(waitlist.requestId, ids)).all();
-  const open = db
+  const entries = await db.select().from(waitlist).where(inArray(waitlist.requestId, ids)).all();
+  const open = await db
     .select({ offer: offers, bayCode: bays.code, requestId: offers.requestId })
     .from(offers)
     .innerJoin(bays, eq(bays.id, offers.bayId))
@@ -107,38 +108,39 @@ export function requestContext(db: Db, ids: string[]): RequestContext {
       ]),
     ),
     positions: new Map(entries.filter((e) => e.position > 0).map((e) => [e.requestId, e.position])),
-    reasons: latestReasons(db, ids),
-    bookings: heldBookings(db, ids),
+    reasons: await latestReasons(db, ids),
+    bookings: await heldBookings(db, ids),
   };
 }
 
 /** The reason from each request's most recent published decision. */
-function latestReasons(db: Db, ids: string[]): Map<string, string> {
-  const rows = db
-    .select({
-      requestId: allocations.requestId,
-      reason: allocations.reasonText,
-      at: rounds.publishedAt,
-    })
-    .from(allocations)
-    .innerJoin(rounds, eq(rounds.id, allocations.roundId))
-    .where(and(eq(rounds.status, 'published'), inArray(allocations.requestId, ids)))
-    .all()
-    .sort((a, b) => (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0));
+async function latestReasons(db: Db, ids: string[]): Promise<Map<string, string>> {
+  const rows = (
+    await db
+      .select({
+        requestId: allocations.requestId,
+        reason: allocations.reasonText,
+        at: rounds.publishedAt,
+      })
+      .from(allocations)
+      .innerJoin(rounds, eq(rounds.id, allocations.roundId))
+      .where(and(eq(rounds.status, 'published'), inArray(allocations.requestId, ids)))
+      .all()
+  ).sort((a, b) => (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0));
   const out = new Map<string, string>();
   for (const r of rows) if (r.reason) out.set(r.requestId, r.reason); // latest wins
   return out;
 }
 
 /** Each request's booking (a bay-holding one first, else the latest), with check-in state. */
-function heldBookings(db: Db, ids: string[]) {
-  const reqs = db
+async function heldBookings(db: Db, ids: string[]) {
+  const reqs = await db
     .select({ userId: requests.userId, date: requests.date })
     .from(requests)
     .where(inArray(requests.id, ids))
     .all();
   if (reqs.length === 0) return new Map();
-  const rows = db
+  const rows = await db
     .select({
       booking: bookings,
       bayCode: bays.code,
@@ -171,7 +173,8 @@ function heldBookings(db: Db, ids: string[]) {
       bayCode: r.bayCode,
       zoneName: r.zoneName,
       status: r.booking.status,
-      checkInBy: r.booking.status === 'confirmed' ? deadlineFor(db, r.booking).toISOString() : null,
+      checkInBy:
+        r.booking.status === 'confirmed' ? (await deadlineFor(db, r.booking)).toISOString() : null,
       checkedInAt: r.checkedInAt?.toISOString() ?? null,
       lateExtensionUsed: r.booking.lateExtensionUsed,
     });
@@ -221,23 +224,25 @@ export function toEmployeeRequest(
 }
 
 // --- eligibility -------------------------------------------------------------
-export function eligibilityOf(db: Db, userId: string, site: Site, now: Date) {
-  const ev = db
+export async function eligibilityOf(db: Db, userId: string, site: Site, now: Date) {
+  const ev = await db
     .select({ id: vehicles.id })
     .from(vehicles)
     .where(and(eq(vehicles.userId, userId), eq(vehicles.isEv, true)))
     .get();
-  const approval = db
-    .select({ expiresAt: approvals.expiresAt })
-    .from(approvals)
-    .where(
-      and(
-        eq(approvals.userId, userId),
-        eq(approvals.kind, 'accessible'),
-        isNull(approvals.revokedAt),
-      ),
-    )
-    .all()
+  const approval = (
+    await db
+      .select({ expiresAt: approvals.expiresAt })
+      .from(approvals)
+      .where(
+        and(
+          eq(approvals.userId, userId),
+          eq(approvals.kind, 'accessible'),
+          isNull(approvals.revokedAt),
+        ),
+      )
+      .all()
+  )
     .filter((a) => a.expiresAt.getTime() > now.getTime())
     .sort((a, b) => b.expiresAt.getTime() - a.expiresAt.getTime())[0];
   return {
@@ -249,14 +254,15 @@ export function eligibilityOf(db: Db, userId: string, site: Site, now: Date) {
   };
 }
 
-function siteBayTypes(db: Db, siteId: string): Set<BayType> {
+async function siteBayTypes(db: Db, siteId: string): Promise<Set<BayType>> {
   return new Set(
-    db
-      .selectDistinct({ bayType: bays.bayType })
-      .from(bays)
-      .where(and(eq(bays.siteId, siteId), eq(bays.active, true)))
-      .all()
-      .map((b) => b.bayType),
+    (
+      await db
+        .selectDistinct({ bayType: bays.bayType })
+        .from(bays)
+        .where(and(eq(bays.siteId, siteId), eq(bays.active, true)))
+        .all()
+    ).map((b) => b.bayType),
   );
 }
 
@@ -309,49 +315,50 @@ const ownVisible = (userId: string) =>
     inArray(requests.status, [...ACTIVE_REQUEST_STATUSES, 'expired']),
   );
 
-export function listRequests(
+export async function listRequests(
   db: Db,
   actor: Actor,
   now: Date,
   from?: IsoDate,
   to?: IsoDate,
-): EmployeeRequest[] {
-  const site = loadSite(db, actor.siteId);
+): Promise<EmployeeRequest[]> {
+  const site = await loadSite(db, actor.siteId);
   const start = from ?? siteLocalDate(now, site.timezone);
   const end = to ?? addDays(start, 42);
-  const rows = db
+  const rows = await db
     .select()
     .from(requests)
     .where(and(ownVisible(actor.id), gte(requests.date, start), lte(requests.date, end)))
     .orderBy(asc(requests.date))
     .all();
-  const ctx = requestContext(
+  const ctx = await requestContext(
     db,
     rows.map((r) => r.id),
   );
   return rows.map((r) => toEmployeeRequest(r, site, now, ctx));
 }
 
-export function getCalendar(
+export async function getCalendar(
   db: Db,
   actor: Actor,
   now: Date,
   from: IsoDate | undefined,
   days: number,
-): CalendarResponse {
-  const site = loadSite(db, actor.siteId);
+): Promise<CalendarResponse> {
+  const site = await loadSite(db, actor.siteId);
   const start = from ?? siteLocalDate(now, site.timezone);
   const end = addDays(start, days - 1);
   const existing = new Map(
-    db
-      .select()
-      .from(requests)
-      .where(and(ownActive(actor.id), gte(requests.date, start), lte(requests.date, end)))
-      .all()
-      .map((r) => [r.date, r]),
+    (
+      await db
+        .select()
+        .from(requests)
+        .where(and(ownActive(actor.id), gte(requests.date, start), lte(requests.date, end)))
+        .all()
+    ).map((r) => [r.date, r]),
   );
-  const eligibility = eligibilityOf(db, actor.id, site, now);
-  const notices = db
+  const eligibility = await eligibilityOf(db, actor.id, site, now);
+  const notices = await db
     .select({ dateFrom: bayBlocks.dateFrom, dateTo: bayBlocks.dateTo, reason: bayBlocks.reason })
     .from(bayBlocks)
     .where(
@@ -383,35 +390,38 @@ export function getCalendar(
         request: req ? { id: req.id, status: req.status, bayType: req.bayType } : null,
       };
     }),
-    bayTypes: allowedBayTypes(siteBayTypes(db, actor.siteId), eligibility),
+    bayTypes: allowedBayTypes(await siteBayTypes(db, actor.siteId), eligibility),
     eligibility,
     notices: uniqueNotices,
   };
 }
 
 // --- mutations ---------------------------------------------------------------
-export function createRequests(
+export async function createRequests(
   db: Db,
   actor: Actor,
   input: RequestCreate,
   now: Date,
-): EmployeeRequest[] {
-  assertConsent(db, actor.id); // DPDP: no processing without consent
-  const site = loadSite(db, actor.siteId);
-  const types = siteBayTypes(db, actor.siteId);
-  const eligibility = eligibilityOf(db, actor.id, site, now);
+): Promise<EmployeeRequest[]> {
+  await assertConsent(db, actor.id); // DPDP: no processing without consent
+  const site = await loadSite(db, actor.siteId);
+  const types = await siteBayTypes(db, actor.siteId);
+  const eligibility = await eligibilityOf(db, actor.id, site, now);
   const existing = new Map(
-    db
-      .select()
-      .from(requests)
-      .where(and(ownActive(actor.id), inArray(requests.date, input.dates)))
-      .all()
-      .map((r) => [r.date, r]),
+    (
+      await db
+        .select()
+        .from(requests)
+        .where(and(ownActive(actor.id), inArray(requests.date, input.dates)))
+        .all()
+    ).map((r) => [r.date, r]),
   );
 
-  const inReview = requestContext(
-    db,
-    [...existing.values()].map((r) => r.id),
+  const inReview = (
+    await requestContext(
+      db,
+      [...existing.values()].map((r) => r.id),
+    )
   ).review;
   const problems: Problem[] = [];
   for (const date of input.dates) {
@@ -444,8 +454,9 @@ export function createRequests(
     throw businessRule(problems[0]!.code, problems[0]!.message, { problems });
   }
 
-  const ids = db.transaction((tx) =>
-    input.dates.map((date) => {
+  const ids = await db.transaction(async (tx) => {
+    const out: string[] = [];
+    for (const date of input.dates) {
       const fields = {
         bayType: input.bayType,
         arrivalWindow: input.arrivalWindow,
@@ -456,13 +467,15 @@ export function createRequests(
       const prior = existing.get(date);
       if (prior) {
         // A new request for the same day replaces the old one.
-        tx.update(requests)
+        await tx
+          .update(requests)
           .set({ ...fields, recurringPatternId: null })
           .where(eq(requests.id, prior.id))
           .run();
-        return prior.id;
+        out.push(prior.id);
+        continue;
       }
-      return tx
+      const created = await tx
         .insert(requests)
         .values({
           orgId: actor.orgId,
@@ -473,27 +486,29 @@ export function createRequests(
           ...fields,
         })
         .returning({ id: requests.id })
-        .get().id;
-    }),
-  );
-  const rows = db
+        .get();
+      out.push(created.id);
+    }
+    return out;
+  });
+  const rows = await db
     .select()
     .from(requests)
     .where(inArray(requests.id, ids))
     .orderBy(asc(requests.date))
     .all();
-  const ctx = requestContext(db, ids);
+  const ctx = await requestContext(db, ids);
   return rows.map((r) => toEmployeeRequest(r, site, now, ctx));
 }
 
-function ownRequest(db: Db, actor: Actor, id: string): RequestRow {
-  const row = db.select().from(requests).where(eq(requests.id, id)).get();
+async function ownRequest(db: Db, actor: Actor, id: string): Promise<RequestRow> {
+  const row = await db.select().from(requests).where(eq(requests.id, id)).get();
   // Someone else's request is reported as not found, so ids can't be probed.
   if (!row || row.userId !== actor.id) throw notFound('Request');
   return row;
 }
 
-export function updateRequest(
+export async function updateRequest(
   db: Db,
   actor: Actor,
   id: string,
@@ -501,63 +516,65 @@ export function updateRequest(
     Pick<RequestRow, 'bayType' | 'arrivalWindow' | 'reasonCategory' | 'allowFallback'>
   >,
   now: Date,
-): EmployeeRequest {
-  const site = loadSite(db, actor.siteId);
-  const row = ownRequest(db, actor, id);
-  if (!toEmployeeRequest(row, site, now, requestContext(db, [row.id])).editable) {
+): Promise<EmployeeRequest> {
+  const site = await loadSite(db, actor.siteId);
+  const row = await ownRequest(db, actor, id);
+  if (!toEmployeeRequest(row, site, now, await requestContext(db, [row.id])).editable) {
     throw conflict('This request can no longer be changed: its round has run.');
   }
   if (patch.bayType && patch.bayType !== row.bayType) {
     const issue = typeProblem(
       patch.bayType,
       row.date,
-      siteBayTypes(db, actor.siteId),
-      eligibilityOf(db, actor.id, site, now),
+      await siteBayTypes(db, actor.siteId),
+      await eligibilityOf(db, actor.id, site, now),
     );
     if (issue) throw businessRule(issue.code, issue.message);
   }
-  db.update(requests)
+  await db
+    .update(requests)
     .set({ ...patch, submittedAt: now })
     .where(eq(requests.id, id))
     .run();
   return toEmployeeRequest(
-    db.select().from(requests).where(eq(requests.id, id)).get()!,
+    (await db.select().from(requests).where(eq(requests.id, id)).get())!,
     site,
     now,
-    requestContext(db, [id]),
+    await requestContext(db, [id]),
   );
 }
 
-export function withdrawRequest(
+export async function withdrawRequest(
   db: Db,
   actor: Actor,
   id: string,
   now: Date,
-): { request: EmployeeRequest; releasedOfferId: string | null } {
-  const site = loadSite(db, actor.siteId);
-  const row = ownRequest(db, actor, id);
+): Promise<{ request: EmployeeRequest; releasedOfferId: string | null }> {
+  const site = await loadSite(db, actor.siteId);
+  const row = await ownRequest(db, actor, id);
   if (row.status === 'allocated') {
     throw conflict('You have a bay for this day. Cancel the booking instead.');
   }
   if (row.status !== 'requested' && row.status !== 'waitlisted') {
     throw conflict('This request is no longer active.');
   }
-  const ctx = requestContext(db, [row.id]);
+  const ctx = await requestContext(db, [row.id]);
   if (ctx.review.has(row.id)) {
     throw conflict(
       'A round has decided this day and is awaiting approval. You can act once results are out.',
     );
   }
   const openOffer = ctx.offers.get(row.id);
-  db.transaction((tx) => {
-    tx.update(requests).set({ status: 'withdrawn' }).where(eq(requests.id, id)).run();
+  await db.transaction(async (tx) => {
+    await tx.update(requests).set({ status: 'withdrawn' }).where(eq(requests.id, id)).run();
     // Withdrawing while holding an offer releases the bay for the next person.
     if (openOffer)
-      tx.update(offers).set({ status: 'declined' }).where(eq(offers.id, openOffer.id)).run();
-    tx.delete(waitlist).where(eq(waitlist.requestId, id)).run();
+      await tx.update(offers).set({ status: 'declined' }).where(eq(offers.id, openOffer.id)).run();
+    await tx.delete(waitlist).where(eq(waitlist.requestId, id)).run();
     // Withdrawing a pattern's request skips that day, so the pattern won't recreate it.
     if (row.recurringPatternId) {
-      tx.insert(recurringSkips)
+      await tx
+        .insert(recurringSkips)
         .values({ patternId: row.recurringPatternId, date: row.date })
         .onConflictDoNothing()
         .run();

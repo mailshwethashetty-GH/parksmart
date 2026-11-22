@@ -33,7 +33,7 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
     { preHandler: anyone, schema: { tags, response: { 200: inboxResponseSchema } } },
     async (req) => {
       const actor = actorOf(req);
-      return listInbox(app.db, actor.id, loadSite(app.db, actor.siteId).timezone);
+      return await listInbox(app.db, actor.id, (await loadSite(app.db, actor.siteId)).timezone);
     },
   );
   app.post(
@@ -43,7 +43,7 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, body: markReadSchema, response: { 200: okResponseSchema } },
     },
     async (req) => {
-      markRead(app.db, actorOf(req).id, req.body.ids, app.clock());
+      await markRead(app.db, actorOf(req).id, req.body.ids, app.clock());
       return { ok: true as const };
     },
   );
@@ -51,7 +51,7 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/me/profile',
     { preHandler: parker, schema: { tags, response: { 200: profileResponseSchema } } },
-    async (req) => getProfile(app.db, actorOf(req)),
+    async (req) => await getProfile(app.db, actorOf(req)),
   );
   app.patch(
     '/me/profile',
@@ -59,7 +59,7 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: parker,
       schema: { tags, body: profileUpdateSchema, response: { 200: profileResponseSchema } },
     },
-    async (req) => updateProfile(app.db, actorOf(req), req.body, app.clock()),
+    async (req) => await updateProfile(app.db, actorOf(req), req.body, app.clock()),
   );
   app.post(
     '/me/vehicles',
@@ -67,7 +67,7 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: parker,
       schema: { tags, body: vehicleCreateSchema, response: { 200: profileResponseSchema } },
     },
-    async (req) => addVehicle(app.db, actorOf(req), req.body, app.clock()),
+    async (req) => await addVehicle(app.db, actorOf(req), req.body, app.clock()),
   );
   app.delete(
     '/me/vehicles/:id',
@@ -75,7 +75,7 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: parker,
       schema: { tags, params: idParamsSchema, response: { 200: profileResponseSchema } },
     },
-    async (req) => removeVehicle(app.db, actorOf(req), req.params.id),
+    async (req) => await removeVehicle(app.db, actorOf(req), req.params.id),
   );
   app.post(
     '/me/consents',
@@ -84,19 +84,19 @@ export const meProfileRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, body: consentUpdateSchema, response: { 200: profileResponseSchema } },
     },
     async (req) =>
-      setConsent(app.db, actorOf(req), req.body.purpose, req.body.granted, app.clock()),
+      await setConsent(app.db, actorOf(req), req.body.purpose, req.body.granted, app.clock()),
   );
 
   app.get('/me/data-export', { preHandler: anyone, schema: { tags } }, async (req, reply) =>
     reply
       .header('content-disposition', 'attachment; filename="parksmart-my-data.json"')
-      .send(exportMyData(app.db, actorOf(req))),
+      .send(await exportMyData(app.db, actorOf(req))),
   );
   app.delete(
     '/me',
     { preHandler: anyone, schema: { tags, response: { 200: okResponseSchema } } },
     async (req) => {
-      deleteMyAccount(app.db, actorOf(req), app.clock());
+      await deleteMyAccount(app.db, actorOf(req), app.clock());
       return { ok: true as const };
     },
   );

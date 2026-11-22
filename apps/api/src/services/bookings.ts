@@ -8,23 +8,28 @@ import { conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { writeAudit } from './audit';
 
-export function cancelBooking(
+export async function cancelBooking(
   db: Db,
   actor: Actor,
   bookingId: string,
   now: Date,
   reason?: string,
-): { siteId: string; date: string } {
-  return db.transaction(
-    (tx) => {
-      const booking = tx.select().from(bookings).where(eq(bookings.id, bookingId)).get();
+): Promise<{ siteId: string; date: string }> {
+  return await db.transaction(
+    async (tx) => {
+      const booking = await tx.select().from(bookings).where(eq(bookings.id, bookingId)).get();
       if (!booking || booking.userId !== actor.id) throw notFound('Booking');
       if (booking.status === 'checked_in')
         throw conflict('You have already checked in for this booking.');
       if (booking.status !== 'confirmed') throw conflict('This booking is no longer active.');
-      tx.update(bookings).set({ status: 'cancelled' }).where(eq(bookings.id, bookingId)).run();
+      await tx
+        .update(bookings)
+        .set({ status: 'cancelled' })
+        .where(eq(bookings.id, bookingId))
+        .run();
       // The request that won it is finished too.
-      tx.update(requests)
+      await tx
+        .update(requests)
         .set({ status: 'withdrawn' })
         .where(
           and(
@@ -34,7 +39,7 @@ export function cancelBooking(
           ),
         )
         .run();
-      writeAudit(
+      await writeAudit(
         tx,
         {
           siteId: booking.siteId,

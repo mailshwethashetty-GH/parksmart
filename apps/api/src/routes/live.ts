@@ -17,6 +17,9 @@ export const liveRoutes: FastifyPluginAsyncZod = async (app) => {
     { preHandler: requireRole('employee', 'admin'), schema: { tags: ['live'], hide: true } },
     async (req, reply) => {
       const actor = actorOf(req);
+      // Serverless functions can't hold a stream open. 204 tells EventSource to stop
+      // reconnecting; the app's 30 s polling keeps screens current (ADR-016).
+      if (app.env.serverless) return reply.code(204).send();
       reply.hijack();
       const res = reply.raw;
       res.writeHead(200, {
@@ -52,10 +55,19 @@ export const liveRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const actor = actorOf(req);
       const now = app.clock();
-      const { siteId, date } = cancelBooking(app.db, actor, req.params.id, now, req.body.reason);
+      const { siteId, date } = await cancelBooking(
+        app.db,
+        actor,
+        req.params.id,
+        now,
+        req.body.reason,
+      );
       app.events.notifyUsers([actor.id]);
       // Freed today? Offer it at once (FR-4: back in a round within a minute).
-      afterJobs(app, sameDayNow(app.db, siteId, date, `after-cancel:${req.params.id}`, now));
+      await afterJobs(
+        app,
+        await sameDayNow(app.db, siteId, date, `after-cancel:${req.params.id}`, now),
+      );
       return { ok: true as const };
     },
   );

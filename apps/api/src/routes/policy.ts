@@ -14,6 +14,6 @@ export const policyRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: currentPolicyResponseSchema, 404: errorResponseSchema },
       },
     },
-    async (req) => getCurrentPolicy(app.db, actorOf(req).siteId, app.clock()),
+    async (req) => await getCurrentPolicy(app.db, actorOf(req).siteId, app.clock()),
   );
 };

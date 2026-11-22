@@ -48,9 +48,9 @@ function monthDays(month: string): IsoDate[] {
   return days;
 }
 
-function peakWeekdays(db: Db, siteId: string, date: IsoDate): number[] {
+async function peakWeekdays(db: Db, siteId: string, date: IsoDate): Promise<number[]> {
   try {
-    const cap = policyVersionForWeek(db, siteId, weekStart(date)).rules.find(
+    const cap = (await policyVersionForWeek(db, siteId, weekStart(date))).rules.find(
       (r) => r.key === 'peak_day_cap',
     );
     return (cap?.config.peakWeekdays as number[] | undefined) ?? [2, 3, 4];
@@ -59,20 +59,27 @@ function peakWeekdays(db: Db, siteId: string, date: IsoDate): number[] {
   }
 }
 
-export function monthlyReport(db: Db, siteId: string, month: string, now: Date): MonthlyReport {
-  const site = loadSite(db, siteId);
+export async function monthlyReport(
+  db: Db,
+  siteId: string,
+  month: string,
+  now: Date,
+): Promise<MonthlyReport> {
+  const site = await loadSite(db, siteId);
   const today = siteLocalDate(now, site.timezone);
   const all = monthDays(month);
   const working = all.filter((d) => isWorkingDay(d, site.settings.workingDays));
   const past = working.filter((d) => d <= today);
-  const peak = new Set(peakWeekdays(db, siteId, all[0]!));
-  const activeBays = db
-    .select({ id: bays.id })
-    .from(bays)
-    .where(and(eq(bays.siteId, siteId), eq(bays.active, true)))
-    .all().length;
+  const peak = new Set(await peakWeekdays(db, siteId, all[0]!));
+  const activeBays = (
+    await db
+      .select({ id: bays.id })
+      .from(bays)
+      .where(and(eq(bays.siteId, siteId), eq(bays.active, true)))
+      .all()
+  ).length;
 
-  const monthBookings = db
+  const monthBookings = await db
     .select({ userId: bookings.userId, date: bookings.date, status: bookings.status })
     .from(bookings)
     .where(
@@ -84,23 +91,24 @@ export function monthlyReport(db: Db, siteId: string, month: string, now: Date):
       ),
     )
     .all();
-  const monthRequests = db
-    .select({
-      id: requests.id,
-      userId: requests.userId,
-      date: requests.date,
-      status: requests.status,
-    })
-    .from(requests)
-    .where(
-      and(
-        eq(requests.siteId, siteId),
-        gte(requests.date, all[0]!),
-        lte(requests.date, all.at(-1)!),
-      ),
-    )
-    .all()
-    .filter((r) => r.status !== 'withdrawn');
+  const monthRequests = (
+    await db
+      .select({
+        id: requests.id,
+        userId: requests.userId,
+        date: requests.date,
+        status: requests.status,
+      })
+      .from(requests)
+      .where(
+        and(
+          eq(requests.siteId, siteId),
+          gte(requests.date, all[0]!),
+          lte(requests.date, all.at(-1)!),
+        ),
+      )
+      .all()
+  ).filter((r) => r.status !== 'withdrawn');
 
   const days = working.map((date) => {
     const b = monthBookings.filter((x) => x.date === date);
@@ -139,44 +147,50 @@ export function monthlyReport(db: Db, siteId: string, month: string, now: Date):
 
   // Overrides among decisions for this month's days in weekly/daily rounds. A round can
   // start in the previous month (the week of 30 Nov covers 1 Dec), so match by day.
-  const roundIds = db
-    .select({ id: rounds.id })
-    .from(rounds)
-    .where(
-      and(
-        eq(rounds.siteId, siteId),
-        inArray(rounds.roundType, ['weekly', 'daily']),
-        lte(rounds.targetDateFrom, all.at(-1)!),
-        gte(rounds.targetDateTo, all[0]!),
-      ),
-    )
-    .all()
-    .map((r) => r.id);
+  const roundIds = (
+    await db
+      .select({ id: rounds.id })
+      .from(rounds)
+      .where(
+        and(
+          eq(rounds.siteId, siteId),
+          inArray(rounds.roundType, ['weekly', 'daily']),
+          lte(rounds.targetDateFrom, all.at(-1)!),
+          gte(rounds.targetDateTo, all[0]!),
+        ),
+      )
+      .all()
+  ).map((r) => r.id);
   const decisionIds = roundIds.length
-    ? db
-        .select({ id: allocations.id, breakdown: allocations.scoreBreakdownJson })
-        .from(allocations)
-        .where(inArray(allocations.roundId, roundIds))
-        .all()
+    ? (
+        await db
+          .select({ id: allocations.id, breakdown: allocations.scoreBreakdownJson })
+          .from(allocations)
+          .where(inArray(allocations.roundId, roundIds))
+          .all()
+      )
         .filter((a) => (a.breakdown as { date: string }).date.startsWith(month))
         .map((a) => a.id)
     : [];
   const overrideCount = decisionIds.length
     ? new Set(
-        db
-          .select({ id: overrides.allocationId })
-          .from(overrides)
-          .where(inArray(overrides.allocationId, decisionIds))
-          .all()
-          .map((o) => o.id),
+        (
+          await db
+            .select({ id: overrides.allocationId })
+            .from(overrides)
+            .where(inArray(overrides.allocationId, decisionIds))
+            .all()
+        ).map((o) => o.id),
       ).size
     : 0;
 
-  const activeEmployees = db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.siteId, siteId), eq(users.role, 'employee'), eq(users.active, true)))
-    .all().length;
+  const activeEmployees = (
+    await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.siteId, siteId), eq(users.role, 'employee'), eq(users.active, true)))
+      .all()
+  ).length;
   const requesters = new Set(monthRequests.map((r) => r.userId)).size;
   const reached = monthBookings.filter((b) => past.includes(b.date));
 

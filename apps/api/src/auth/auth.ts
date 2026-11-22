@@ -3,7 +3,7 @@
  * New SSO users join the org whose `email_domain` matches; unknown domains are refused.
  */
 import { sso } from '@better-auth/sso';
-import { schema, type Db } from '@parksmart/db';
+import { schema, SEED_EMAIL_DOMAIN, type Db } from '@parksmart/db';
 import { AUTH_BASE } from '@parksmart/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -60,7 +60,7 @@ export function createAuth(db: Db, env: Env) {
       user: {
         create: {
           before: async (user) => {
-            const home = resolveHomeForEmail(db, user.email);
+            const home = await resolveHomeForEmail(db, user.email, env.allowedEmails);
             if (!home) {
               throw new APIError('FORBIDDEN', {
                 message: 'Your organisation is not set up for ParkSmart.',
@@ -79,7 +79,11 @@ export function createAuth(db: Db, env: Env) {
         // Only admins may register an identity provider for their org.
         providersLimit: (user) => ((user as { role?: string }).role === 'admin' ? 5 : 0),
       }),
-      ...(env.devLoginEnabled ? [devLogin(db)] : []),
+      ...(env.devLoginEnabled
+        ? [devLogin(db)]
+        : env.demoMode
+          ? [devLogin(db, { onlyDomain: SEED_EMAIL_DOMAIN })]
+          : []),
     ],
   });
 }

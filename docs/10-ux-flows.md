@@ -37,6 +37,7 @@ stateDiagram-v2
 
 | Screen | Route | User | Must show |
 | --- | --- | --- | --- |
+| Sign in | `/login` | Everyone | Only the methods the server offers (`GET /login-options`): "Continue with Google" (or Microsoft) when an identity provider is set; the sample people (name and role) in dev, or in prototype demo mode, labelled as made-up demo data (ADR-017); otherwise "Sign-in is not set up yet" |
 | Home | `/app` | Employee | Upcoming requests with status and the round that decides each (or "results by …" / "results delayed" while in review), waitlist position, same-day offer card with countdown and accept/decline, change/withdraw, links to book and weekly pattern. Confirmed bookings show bay and zone, the check-in deadline, today's QR code, "Running late", cancel; then "Checked in" or "Released" |
 | Book | `/app/book` | Employee | 4-week day grid (closed days greyed), bay types the employee may request, "EV/accessible bay only", arrival window, optional reason, block notices, which round decides each selected day. Chat box for NL booking is P1 (FR-2) |
 | Weekly pattern | `/app/recurring` | Employee | Weekday pattern, upcoming covered days with skip/undo, stop pattern |

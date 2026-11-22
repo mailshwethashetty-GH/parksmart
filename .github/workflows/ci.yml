@@ -21,6 +21,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # The Vercel bundle (web + API function) must build too (ADR-016).
+      - run: pnpm build:vercel
 
   e2e:
     # Playwright through the pilot week (docs/10 flows) with axe checks and the
