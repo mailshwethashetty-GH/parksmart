@@ -1,0 +1,9 @@
+---
+description: ParkSmart project rules (mirrors CLAUDE.md)
+alwaysApply: true
+---
+
+Follow `CLAUDE.md` at the repo root. It is the single source for project rules, the doc map and the doc-update policy.
+
+Before working on an area, read the matching file in `docs/` (see the table in `CLAUDE.md`).
+After a change that adds or alters a feature, schema, endpoint, dependency, architecture or flow, update the matching doc and add a line to `docs/CHANGELOG.md`. Do not update docs for bug fixes, refactors, styling or tests.

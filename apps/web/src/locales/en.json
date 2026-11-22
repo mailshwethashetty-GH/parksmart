@@ -1,0 +1,31 @@
+{
+  "appName": "ParkSmart",
+  "tagline": "Fair, rule-based parking. Booking early earns no advantage.",
+  "login": {
+    "title": "Sign in",
+    "ssoLabel": "Work email",
+    "ssoButton": "Continue with SSO",
+    "ssoHint": "You'll be sent to your company's sign-in page.",
+    "devTitle": "Dev login",
+    "devHint": "Development only. Pick a seeded user.",
+    "failed": "Sign-in failed: {{message}}"
+  },
+  "nav": {
+    "employee": "My parking",
+    "admin": "Admin",
+    "gate": "Gate",
+    "signOut": "Sign out"
+  },
+  "home": {
+    "employeeTitle": "My parking",
+    "employeeBody": "Booking arrives in M3. You're signed in at {{site}}.",
+    "adminTitle": "Admin console",
+    "adminBody": "Site setup, policy and round review arrive in M2–M5.",
+    "gateTitle": "Gate view",
+    "gateBody": "QR scanning and manual check-in arrive in M6."
+  },
+  "errors": {
+    "forbidden": "You don't have access to this page.",
+    "generic": "Something went wrong."
+  }
+}
