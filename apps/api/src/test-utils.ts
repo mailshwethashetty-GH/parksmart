@@ -1,6 +1,7 @@
 import { seed, type Db } from '@parksmart/db';
 import { createTestDb } from '@parksmart/db/testing';
 import { API_BASE, AUTH_BASE } from '@parksmart/shared';
+import type { AiClient } from './ai/client';
 import { buildApp } from './app';
 import { loadEnv } from './config/env';
 
@@ -14,12 +15,13 @@ export const TEST_ENV = {
 
 export async function createTestApp(
   envOverrides: Record<string, string> = {},
-  opts: { clock?: () => Date } = {},
+  opts: { clock?: () => Date; ai?: AiClient | null } = {},
 ) {
   const db: Db = createTestDb();
   seed(db, new Date('2026-11-22T04:00:00Z'));
   const env = loadEnv({ ...TEST_ENV, ...envOverrides });
-  const app = await buildApp({ env, db, logger: false, clock: opts.clock });
+  // Tests never call the real Claude API: no client unless a fake is passed.
+  const app = await buildApp({ env, db, logger: false, clock: opts.clock, ai: opts.ai ?? null });
   return { app, db, env };
 }
 
@@ -81,6 +83,7 @@ export async function clientFor(app: App, email: string) {
     return { status: res.statusCode, body: res.body ? res.json() : null };
   };
   return {
+    cookie,
     get: (url: string) => call('GET', url),
     post: (url: string, payload: unknown = {}) => call('POST', url, payload),
     put: (url: string, payload: unknown) => call('PUT', url, payload),

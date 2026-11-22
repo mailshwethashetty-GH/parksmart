@@ -1,6 +1,5 @@
-import { auditLog } from '@parksmart/db';
+import { auditLog, eq } from '@parksmart/db';
 import { API_BASE, AUTH_BASE, CSRF_HEADER } from '@parksmart/shared';
-import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadEnv } from './config/env';
 import { requireRole } from './plugins/auth';

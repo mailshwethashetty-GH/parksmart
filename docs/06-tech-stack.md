@@ -28,7 +28,7 @@
 | Dates | `react-day-picker`, `date-fns`, `date-fns-tz` |
 | QR | `qrcode.react` (display), `@zxing/browser` (gate scanner) |
 | Charts | Recharts |
-| Live updates | Server-Sent Events (waitlist position, offers, admin review) |
+| Live updates | Server-Sent Events: `GET /api/v1/stream/me` sends "your requests changed" (no data); the app refetches. In-process event bus (one instance). 30 s polling stays as a fallback |
 | Text strings | `react-i18next` + `i18next` (English at launch, `src/locales/en.json`) |
 
 ## Backend — `apps/api`
@@ -83,10 +83,10 @@ All round jobs run from one Croner tick every minute, in this order for each sit
 | Use | Approach |
 | --- | --- |
 | NL requests (FR-2) | Tool use / structured output → Zod-validated draft → user confirms |
-| Reasons (FR-15) | Engine supplies breakdown; Claude rewrites it in < 40 words; template fallback |
+| Reasons (FR-15) | Template reason stored at run time; after each round Claude rewrites it (`AI_MODEL_FAST`, default `claude-haiku-5-5`, effort `low`, 20 s timeout, 2 SDK retries, concurrency 4). Accepted only if under 40 words and every bay code/number is kept; otherwise the template stays |
 | Flags, summaries, weight suggestions (FR-17/18/28) | Batch after rounds; suggest-only |
 | Models | Sonnet-class for parsing and suggestions, Haiku-class for high-volume reasons (set via env vars `AI_MODEL_SMART`, `AI_MODEL_FAST`) |
-| Guardrails | `ai_logs` for every call; pseudonymous data only; server-side stage check |
+| Guardrails | `ai_logs` for every call; pseudonymous data only (no names, ids, emails, reason category); server-side stage check; no key → templates only; `@anthropic-ai/sdk` 1.x behind a small `AiClient` interface (tests inject a fake) |
 
 ## Testing and quality
 

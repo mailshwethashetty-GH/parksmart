@@ -1,5 +1,6 @@
 import { formatDayShort, formatSiteTime } from '@parksmart/shared';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +47,11 @@ export function RoundsPage() {
               <tbody>
                 {items.map((r) => (
                   <tr key={r.id}>
-                    <Td>{t(`booking.round.${r.roundType}`)}</Td>
+                    <Td>
+                      <Link to={`/admin/rounds/${r.id}`} className="font-medium hover:underline">
+                        {t(`booking.round.${r.roundType}`)}
+                      </Link>
+                    </Td>
                     <Td className="whitespace-nowrap">
                       {formatDayShort(r.targetDateFrom)}
                       {r.targetDateTo !== r.targetDateFrom &&

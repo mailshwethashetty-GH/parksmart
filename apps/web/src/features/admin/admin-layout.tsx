@@ -11,6 +11,7 @@ export function AdminLayout() {
     { to: '/admin/rounds', label: t('admin.rounds') },
     { to: '/admin/site', label: t('admin.site') },
     { to: '/admin/policy', label: t('admin.policy') },
+    { to: '/admin/audit', label: t('admin.audit') },
   ];
   return (
     <div className="flex flex-col gap-6">

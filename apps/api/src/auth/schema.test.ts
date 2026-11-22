@@ -2,11 +2,10 @@
  * Guards against drift between our Drizzle auth tables and what Better Auth (and its
  * SSO plugin) expect. Fails on a Better Auth upgrade that adds a field we don't have.
  */
-import { schema } from '@parksmart/db';
+import { getTableColumns, schema } from '@parksmart/db';
 import { createTestDb } from '@parksmart/db/testing';
 import { getSchema } from 'better-auth/db';
-import { getTableColumns } from 'drizzle-orm';
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
+import type { SQLiteTable } from '@parksmart/db';
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from '../config/env';
 import { TEST_ENV } from '../test-utils';

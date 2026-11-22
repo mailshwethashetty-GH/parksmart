@@ -4,7 +4,17 @@
  * never mid-round (non-negotiable #8). Every change is audited (non-negotiable #5).
  */
 import { validatePolicy } from '@parksmart/engine';
-import { policies, policyVersions, rules, type Db } from '@parksmart/db';
+import {
+  and,
+  asc,
+  type Db,
+  desc,
+  eq,
+  isNull,
+  policies,
+  policyVersions,
+  rules,
+} from '@parksmart/db';
 import {
   describePolicy,
   nextWeeklyRound,
@@ -17,7 +27,6 @@ import {
   type PolicyVersionSummary,
   type RuleInput,
 } from '@parksmart/shared';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { businessRule, conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { iso } from './_scope';

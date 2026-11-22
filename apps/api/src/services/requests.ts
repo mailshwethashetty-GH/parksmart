@@ -6,19 +6,29 @@
  */
 import {
   allocations,
+  and,
   approvals,
+  asc,
   bayBlocks,
   bays,
+  bookings,
+  type Db,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
   offers,
   recurringSkips,
   requests,
   rounds,
   vehicles,
   waitlist,
-  type Db,
+  zones,
 } from '@parksmart/db';
 import {
   ACTIVE_REQUEST_STATUSES,
+  BAY_HOLDING_BOOKING_STATUSES,
   addDays,
   decidingRound,
   siteLocalDate,
@@ -29,7 +39,6 @@ import {
   type IsoDate,
   type RequestCreate,
 } from '@parksmart/shared';
-import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { businessRule, conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { loadSite } from './site';
@@ -57,11 +66,16 @@ export type RequestContext = {
   review: Map<string, { resultsBy: Date | null }>;
   offers: Map<string, { id: string; bayCode: string; expiresAt: Date }>;
   positions: Map<string, number>;
+  reasons: Map<string, string>;
+  /** Bay-holding bookings keyed by `${userId}|${date}`. */
+  bookings: Map<string, { id: string; bayCode: string; zoneName: string }>;
 };
 const EMPTY_CONTEXT: RequestContext = {
   review: new Map(),
   offers: new Map(),
   positions: new Map(),
+  reasons: new Map(),
+  bookings: new Map(),
 };
 
 export function requestContext(db: Db, ids: string[]): RequestContext {
@@ -91,7 +105,55 @@ export function requestContext(db: Db, ids: string[]): RequestContext {
       ]),
     ),
     positions: new Map(entries.filter((e) => e.position > 0).map((e) => [e.requestId, e.position])),
+    reasons: latestReasons(db, ids),
+    bookings: heldBookings(db, ids),
   };
+}
+
+/** The reason from each request's most recent published decision. */
+function latestReasons(db: Db, ids: string[]): Map<string, string> {
+  const rows = db
+    .select({
+      requestId: allocations.requestId,
+      reason: allocations.reasonText,
+      at: rounds.publishedAt,
+    })
+    .from(allocations)
+    .innerJoin(rounds, eq(rounds.id, allocations.roundId))
+    .where(and(eq(rounds.status, 'published'), inArray(allocations.requestId, ids)))
+    .all()
+    .sort((a, b) => (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0));
+  const out = new Map<string, string>();
+  for (const r of rows) if (r.reason) out.set(r.requestId, r.reason); // latest wins
+  return out;
+}
+
+function heldBookings(db: Db, ids: string[]) {
+  const reqs = db
+    .select({ userId: requests.userId, date: requests.date })
+    .from(requests)
+    .where(inArray(requests.id, ids))
+    .all();
+  if (reqs.length === 0) return new Map();
+  const rows = db
+    .select({ booking: bookings, bayCode: bays.code, zoneName: zones.name })
+    .from(bookings)
+    .innerJoin(bays, eq(bays.id, bookings.bayId))
+    .innerJoin(zones, eq(zones.id, bays.zoneId))
+    .where(
+      and(
+        inArray(bookings.userId, [...new Set(reqs.map((r) => r.userId))]),
+        inArray(bookings.date, [...new Set(reqs.map((r) => r.date))]),
+        inArray(bookings.status, [...BAY_HOLDING_BOOKING_STATUSES]),
+      ),
+    )
+    .all();
+  return new Map(
+    rows.map((r) => [
+      `${r.booking.userId}|${r.booking.date}`,
+      { id: r.booking.id, bayCode: r.bayCode, zoneName: r.zoneName },
+    ]),
+  );
 }
 
 export function toEmployeeRequest(
@@ -126,6 +188,9 @@ export function toEmployeeRequest(
       ? { id: offer.id, bayCode: offer.bayCode, expiresAt: offer.expiresAt.toISOString() }
       : null,
     waitlistPosition: row.status === 'waitlisted' ? (ctx.positions.get(row.id) ?? null) : null,
+    reason: ctx.reasons.get(row.id) ?? null,
+    booking:
+      row.status === 'allocated' ? (ctx.bookings.get(`${row.userId}|${row.date}`) ?? null) : null,
   };
 }
 

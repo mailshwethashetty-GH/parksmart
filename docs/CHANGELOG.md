@@ -3,6 +3,10 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 03, 12 — Reasons and overrides as built; ADR-013 AI rewrites behind a fact check — decided while building M5
+- 2026-11-22 — 06, 07 — Anthropic SDK settings, SSE live updates, single drizzle-orm copy via @parksmart/db re-exports (lint-enforced), after-jobs hook — built in M5
+- 2026-11-22 — 09, 10 — Review, approve, override, audit, cancel and stream endpoints; review and audit screens — built in M5
+- 2026-11-22 — 04, 13 — FR-4, FR-15, FR-20 Done; FR-16 In progress (approval reminders in M7); M5 Done
 - 2026-11-22 — 03, 07, 12 — ADR-012 one tie-break seed per week; request lock while in review; same-day offer rules (accept/decline/expire, immediate re-offer) — decided while building M4
 - 2026-11-22 — 08 — `offers.waitlist_id` → `offers.request_id` (migrations 0002–0003) — offers are history; deleting a waitlist row broke the foreign key
 - 2026-11-22 — 06, 09, 10 — Round job order and cadence; offers, rounds and collation endpoints; collation/rounds screens and offer card — built in M4

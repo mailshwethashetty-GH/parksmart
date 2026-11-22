@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { errorMessage } from '@/lib/api';
 import { useMe } from '@/lib/auth';
-import { useRequests, useWithdrawRequest } from '@/lib/request-api';
+import { useCancelBooking, useRequests, useWithdrawRequest } from '@/lib/request-api';
 import { decidedByText, STATUS_VARIANT } from './labels';
 import { OfferCard } from './offer-card';
 
@@ -19,6 +19,7 @@ export function EmployeeHomePage() {
   const withdraw = useWithdrawRequest();
   const location = useLocation();
   const justRequested = (location.state as { requested?: number } | null)?.requested;
+  const cancel = useCancelBooking();
   const tz = me.data?.site.timezone ?? 'Asia/Kolkata';
   const items = requests.data?.items ?? [];
 
@@ -42,6 +43,7 @@ export function EmployeeHomePage() {
         <Alert tone="success">{t('booking.requestedOk', { count: justRequested })}</Alert>
       ) : null}
       {withdraw.isError && <Alert tone="error">{errorMessage(withdraw.error)}</Alert>}
+      {cancel.isError && <Alert tone="error">{errorMessage(cancel.error)}</Alert>}
 
       <Card>
         <CardHeader>
@@ -94,12 +96,34 @@ export function EmployeeHomePage() {
                       {t('booking.position', { n: r.waitlistPosition })}
                     </span>
                   )}
+                  {r.booking && (
+                    <span className="text-sm font-medium">
+                      {t('booking.yourBay', { bay: r.booking.bayCode, zone: r.booking.zoneName })}
+                    </span>
+                  )}
+                  {r.reason && (
+                    <span className="max-w-prose text-sm text-muted-foreground">{r.reason}</span>
+                  )}
                   {r.offer && <OfferCard date={r.date} offer={r.offer} />}
                 </div>
                 <div className="flex gap-1">
                   {r.editable && (
                     <Button asChild size="sm" variant="ghost">
                       <Link to={`/app/book?date=${r.date}`}>{t('booking.change')}</Link>
+                    </Button>
+                  )}
+                  {r.booking && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive"
+                      disabled={cancel.isPending}
+                      onClick={() => {
+                        if (window.confirm(t('booking.cancelConfirm')))
+                          cancel.mutate(r.booking!.id);
+                      }}
+                    >
+                      {t('booking.cancelBooking')}
                     </Button>
                   )}
                   {(r.status === 'requested' || r.status === 'waitlisted') && (

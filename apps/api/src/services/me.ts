@@ -1,6 +1,5 @@
-import { orgs, sites, users, type Db } from '@parksmart/db';
+import { type Db, eq, orgs, sites, users } from '@parksmart/db';
 import type { MeResponse } from '@parksmart/shared';
-import { eq } from 'drizzle-orm';
 import { notFound } from '../lib/errors';
 
 export function getMe(db: Db, userId: string): MeResponse {

@@ -36,7 +36,7 @@ export function BookPage() {
     const date = params.get('date');
     return date ? [date] : [];
   });
-  const [bayType, setBayType] = useState<BayType>('car');
+  const [chosenType, setBayType] = useState<BayType | null>(null);
   const [arrivalWindow, setArrivalWindow] = useState<ArrivalWindow>('before_9');
   const [reasonCategory, setReasonCategory] = useState<ReasonCategory | null>(null);
   const [typeOnly, setTypeOnly] = useState(false);
@@ -44,6 +44,9 @@ export function BookPage() {
   const tz = me.data?.site.timezone ?? 'Asia/Kolkata';
   const days = calendar.data?.days ?? [];
   const types = calendar.data?.bayTypes ?? ['car'];
+  // Changing an existing request starts from its current bay type.
+  const existingType = days.find((d) => d.date === params.get('date'))?.request?.bayType;
+  const bayType: BayType = chosenType ?? existingType ?? 'car';
   const toggle = (date: string) =>
     setSelected((s) => (s.includes(date) ? s.filter((d) => d !== date) : [...s, date].sort()));
   const chosen = days.filter((d) => selected.includes(d.date) && d.open);

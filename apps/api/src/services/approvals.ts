@@ -2,7 +2,7 @@
  * Accessible-bay approvals (FR-13). Only a flag and an expiry are stored — never
  * medical details (non-negotiable #7). `expiresOn` is the last valid site-local day.
  */
-import { approvals, users, type Db } from '@parksmart/db';
+import { and, approvals, asc, type Db, desc, eq, like, or, users } from '@parksmart/db';
 import {
   addDays,
   siteLocalDate,
@@ -10,7 +10,6 @@ import {
   type Approval,
   type Role,
 } from '@parksmart/shared';
-import { and, asc, desc, eq, like, or } from 'drizzle-orm';
 import { businessRule, conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { assertInSite, iso } from './_scope';

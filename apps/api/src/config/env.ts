@@ -21,6 +21,10 @@ const envSchema = z.object({
   SSO_ENTRA_CLIENT_ID: z.string().optional(),
   SSO_ENTRA_CLIENT_SECRET: z.string().optional(),
   DEFAULT_TIMEZONE: z.string().default('Asia/Kolkata'),
+  // Claude API (optional: without a key, reasons stay as templates).
+  ANTHROPIC_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  AI_MODEL_FAST: z.string().default('claude-haiku-5-5'),
+  AI_MODEL_SMART: z.string().default('claude-sonnet-5-5'),
   LOG_LEVEL: z.preprocess(
     (v) => (v === '' ? undefined : v),
     z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),

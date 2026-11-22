@@ -3,12 +3,11 @@
  * seeded user by email, with no password. It is only registered when
  * `env.devLoginEnabled` is true, which `loadEnv` never allows in production.
  */
-import { users, type Db } from '@parksmart/db';
+import { asc, type Db, eq, users } from '@parksmart/db';
 import { devSignInBodySchema } from '@parksmart/shared';
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint } from 'better-auth/api';
 import { setSessionCookie } from 'better-auth/cookies';
-import { asc, eq } from 'drizzle-orm';
 
 export const devLogin = (db: Db) =>
   ({

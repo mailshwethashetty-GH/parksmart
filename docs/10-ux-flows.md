@@ -40,16 +40,16 @@ stateDiagram-v2
 | Home | `/app` | Employee | Upcoming requests with status and the round that decides each (or "results by …" / "results delayed" while in review), waitlist position, same-day offer card with countdown and accept/decline, change/withdraw, links to book and weekly pattern. Today's QR code arrives in M6 |
 | Book | `/app/book` | Employee | 4-week day grid (closed days greyed), bay types the employee may request, "EV/accessible bay only", arrival window, optional reason, block notices, which round decides each selected day. Chat box for NL booking is P1 (FR-2) |
 | Weekly pattern | `/app/recurring` | Employee | Weekday pattern, upcoming covered days with skip/undo, stop pattern |
-| Booking detail | `/app/bookings/:id` | Employee | Status, bay and zone, reason, cancel, running late, appeal |
+| Booking detail | `/app/bookings/:id` | Employee | Not a separate page yet: bay and zone, reason and cancel are on the home list. Running late (M6) and appeal (P1) to come |
 | Policy (read-only) | `/app/policy` | Employee | Current rules and weights in plain language |
 | Profile | `/app/profile` | Employee | Vehicles, optional fields with why-we-ask, consent, data export/delete |
-| Allocation review | `/admin/rounds/:id` | Admin | Proposed allocations, flags, approve all, override with reason |
+| Allocation review | `/admin/rounds/:id` | Admin | Decisions per day: rank, employee, outcome and bay, score (click for factor breakdown), reason; approve with optional note; inline override (move to waitlist / assign a free bay) with required reason. AI anomaly flags are P1 |
 | Collation | `/admin/collation` | Admin | Per bay type and working day: requests, supply, same-day pool, demand ratio (red above 1×), confirmed, waitlisted, forecast still to come, rounds covering the day |
 | Rounds | `/admin/rounds` | Admin | Recent rounds with status (awaiting review, past deadline, published and how), counts. Review/approve arrives in M5 |
 | Policy | `/admin/policy` | Admin | Version list with status (draft, scheduled, in force, superseded); rule builder with live weight total, per-rule settings (neutral value, spot-check, cap, stated purpose) and inline feasibility; publish with a required reason and the week it takes effect; plain-language preview. Impact simulation (P1) and AI stage (M5+) to come. Round times and grace window are under Site setup → Settings |
 | Site setup | `/admin/site` | Admin | Tabs: zones & bays (bulk add, deactivate), blocks (bays or a whole zone, with a reason), accessible approvals (flag + end date only), settings (rounds, deadlines, pool, grace, backup admins). User import is P1 |
 | Analytics | `/admin/analytics` | Admin | Utilisation, no-shows, fairness spread, forecast, export |
-| Audit | `/admin/audit` | Admin | Filterable log, export |
+| Audit | `/admin/audit` | Admin | Filter by action prefix and dates, load more, CSV export |
 | Gate view | `/gate` | Security | Today's bookings by bay, QR scanner, manual check-in, bay map |
 
 ## UX principles

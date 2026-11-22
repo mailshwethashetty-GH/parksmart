@@ -51,7 +51,7 @@ parksmart/
 │        ├─ routes/        # thin HTTP handlers, one folder per resource
 │        ├─ services/      # business logic (rounds, bookings, policy…)
 │        ├─ jobs/          # croner scheduler, idempotent runOnce (job_runs), job functions
-│        ├─ ai/            # Claude prompts, clients, fallbacks
+│        ├─ ai/            # Claude client (AiClient), reason rewrites with fact checks
 │        ├─ notifications/
 │        ├─ auth/          # Better Auth config, dev-only login plugin
 │        ├─ config/        # env parsing and startup guards
@@ -76,6 +76,8 @@ parksmart/
 - `packages/engine` imports nothing except `packages/shared` types.
 - `packages/shared` imports nothing from other packages.
 - The web app talks to the API only, through the typed client in `apps/web/src/lib/api`.
+- Apps import Drizzle query helpers from `@parksmart/db` (which re-exports them), never from `drizzle-orm` directly: a second copy of drizzle-orm (it appeared when the Anthropic SDK added an optional peer) makes columns and operators incompatible. ESLint enforces this.
+- After each job tick, `jobs/after-jobs.ts` notifies affected employees (SSE) and starts AI reason rewrites outside the round transaction.
 - These rules are enforced by ESLint (`no-restricted-imports` etc. in `eslint.config.js`): the engine cannot import I/O modules or use `Math.random`/`Date.now`/`new Date()`, and `apps/api/src/routes` cannot import `@parksmart/db` or `drizzle-orm`.
 - Every route declares its roles with the `requireRole(...)` preHandler, which sets `request.actor` (id, org, site, role). Services take the actor's site for scoping.
 - Every audit entry goes through `services/audit.ts` (`writeAudit`), inside the same transaction as the change.

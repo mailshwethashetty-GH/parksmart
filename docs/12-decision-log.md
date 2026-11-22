@@ -16,6 +16,14 @@ Record significant decisions with trade-offs here: anything someone might later 
 
 ---
 
+## ADR-013 — AI rewrites reasons only behind a fact check, with the template as the source of truth
+- Date: 2026-11-22
+- Status: Accepted
+- Context: Stage 1 has the AI write each decision's reason (FR-15). A rewrite that drops or changes a fact (a bay code, a rank) would mislead employees, and the AI must never see personal data (non-negotiable #7).
+- Decision: The engine-backed template is stored at run time and is always valid. After a round, the AI rewrites it from pseudonymous facts only. The rewrite replaces the template only if it is under 40 words and contains every bay code and number from the template; otherwise (or on refusal, error, no key, AI stage 0) the template stays. Sensitive cases stay templated. Every call is logged in `ai_logs`.
+- Alternatives: AI writes reasons from scratch (rejected: unverifiable); no AI (rejected: loses the friendlier wording the strategy relies on).
+- Consequences: Reasons never depend on the AI being up. Waitlist numbers are not put in reasons (they change).
+
 ## ADR-012 — One tie-break seed per week, shared by all rounds
 - Date: 2026-11-22
 - Status: Accepted

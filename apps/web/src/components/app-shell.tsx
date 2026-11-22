@@ -2,12 +2,15 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { useMe, useSignOut } from '@/lib/auth';
+import { useLiveUpdates } from '@/lib/request-api';
 import { cn } from '@/lib/utils';
 
 export function AppShell() {
   const { t } = useTranslation();
   const me = useMe();
   const signOut = useSignOut();
+  // Live updates for people who make requests (employees and admins).
+  useLiveUpdates(me.data?.role === 'employee' || me.data?.role === 'admin');
   const navigate = useNavigate();
   const role = me.data?.role;
 

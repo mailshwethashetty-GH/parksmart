@@ -31,7 +31,8 @@
     "site": "Site setup",
     "policy": "Policy",
     "collation": "Collation",
-    "rounds": "Rounds"
+    "rounds": "Rounds",
+    "audit": "Audit"
   },
   "home": {
     "employeeTitle": "My parking",
@@ -282,7 +283,10 @@
     "offerLeft": "Accept within {{time}}",
     "offerExpired": "This offer has expired.",
     "accept": "Accept",
-    "decline": "Decline"
+    "decline": "Decline",
+    "yourBay": "Your bay: {{bay}} · {{zone}}",
+    "cancelBooking": "Cancel booking",
+    "cancelConfirm": "Cancel this booking? The bay goes to someone else."
   },
   "rounds": {
     "collationTitle": "Collation",
@@ -314,5 +318,46 @@
       "auto_timeout": "day-start safety valve",
       "auto_stage3": "AI stage 3"
     }
+  },
+  "review": {
+    "meta": "Ran {{ran}} · policy v{{version}} · seed {{seed}}",
+    "approveTitle": "Approve and publish",
+    "deadline": "Approve by {{time}}. Otherwise it publishes at 07:00 on its first day.",
+    "note": "Note (optional, recorded in the audit log)",
+    "approve": "Approve ({{count}} confirmed)",
+    "employee": "Employee",
+    "outcome": "Outcome",
+    "score": "Score",
+    "why": "Reason",
+    "override": "Override",
+    "outcomes": {
+      "confirmed": "Confirmed",
+      "waitlisted": "Waitlisted",
+      "ineligible": "Ineligible"
+    },
+    "fallback": "fallback",
+    "capped": "capped",
+    "overridden": "overridden",
+    "neutral": "neutral",
+    "toWaitlist": "Move to waitlist",
+    "assign": "Assign a bay",
+    "bay": "Bay",
+    "pickBay": "Choose a free bay…",
+    "noFreeBay": "No free bay that day",
+    "reason": "Reason (required)",
+    "cancel": "Cancel"
+  },
+  "audit": {
+    "title": "Audit log",
+    "hint": "Every allocation, override, release and policy change, with who, when and why. Kept for 12 months.",
+    "filters": "Filters",
+    "action": "Action",
+    "to": "To",
+    "export": "Export CSV",
+    "when": "When",
+    "who": "Who",
+    "reason": "Reason",
+    "system": "System",
+    "more": "Load more"
   }
 }

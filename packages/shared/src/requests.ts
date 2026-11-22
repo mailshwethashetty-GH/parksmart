@@ -35,6 +35,10 @@ export const requestSchema = z.object({
   offer: z.object({ id: z.string(), bayCode: z.string(), expiresAt: isoDateTime }).nullable(),
   /** 1-based place in the waitlist for its date and bay type. */
   waitlistPosition: z.number().int().nullable(),
+  /** Plain-language reason from the latest published decision (FR-15). */
+  reason: z.string().nullable(),
+  /** The confirmed bay, once allocated. */
+  booking: z.object({ id: z.string(), bayCode: z.string(), zoneName: z.string() }).nullable(),
 });
 export type EmployeeRequest = z.infer<typeof requestSchema>;
 export const requestsResponseSchema = z.object({ items: z.array(requestSchema) });
@@ -123,3 +127,4 @@ export const skipBodySchema = z.object({ date: isoDateSchema });
 export const skipParamsSchema = z.object({ id: z.string().min(1), date: isoDateSchema });
 
 export const offerAcceptResponseSchema = z.object({ bookingId: z.string() });
+export const bookingCancelSchema = z.object({ reason: z.string().trim().max(300).optional() });

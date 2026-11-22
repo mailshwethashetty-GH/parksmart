@@ -10,7 +10,7 @@
  * then offer-expiry for all sites, re-offering freed bays straight away.
  * Every run claims a `job_runs` key first, so restarts never double-run a round.
  */
-import { rounds, sites, type Db } from '@parksmart/db';
+import { and, asc, type Db, eq, rounds, sites } from '@parksmart/db';
 import {
   addDays,
   isWorkingDay,
@@ -22,7 +22,6 @@ import {
   type IsoDate,
   type SiteSettings,
 } from '@parksmart/shared';
-import { and, asc, eq } from 'drizzle-orm';
 import { expireOffers } from '../services/offers';
 import { pendingRoundsCovering, publishRound, runRound } from '../services/rounds';
 import { runOnce } from './runner';
@@ -132,10 +131,24 @@ export function reofferAfter(
   offerId: string,
   now: Date,
 ): JobEvent[] {
+  return sameDayNow(db, siteId, date, `after-offer:${offerId}`, now);
+}
+
+/**
+ * Run a same-day round for `date` straight away when it is today and within same-day
+ * hours (a bay was just freed). `trigger` makes the job key unique per cause.
+ */
+export function sameDayNow(
+  db: Db,
+  siteId: string,
+  date: IsoDate,
+  trigger: string,
+  now: Date,
+): JobEvent[] {
   const site = loadJobSite(db, siteId);
   const events: JobEvent[] = [];
   if (date !== siteLocalDate(now, site.timezone) || !currentSameDaySlot(site, now)) return events;
-  sameDayRun(db, site, date, `same-day:${siteId}:${date}:after-offer:${offerId}`, now, events);
+  sameDayRun(db, site, date, `same-day:${siteId}:${date}:${trigger}`, now, events);
   return events;
 }
 

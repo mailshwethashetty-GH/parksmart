@@ -68,6 +68,23 @@ export default tseslint.config(
       ],
     },
   },
+  // One copy of drizzle-orm: apps import query helpers from @parksmart/db.
+  {
+    files: ['apps/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['drizzle-orm', 'drizzle-orm/*'],
+              message: 'Import query helpers from @parksmart/db (single drizzle-orm copy).',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Layering: route handlers never touch the DB directly (routes → services → db).
   {
     files: ['apps/api/src/routes/**/*.ts'],

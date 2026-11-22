@@ -17,6 +17,7 @@ import {
   okResponseSchema,
 } from '@parksmart/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { afterJobs } from '../jobs/after-jobs';
 import { reofferAfter } from '../jobs/round-jobs';
 import { actorOf, requireRole } from '../plugins/auth';
 import { acceptOffer, declineOffer } from '../services/offers';
@@ -84,7 +85,10 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
       const actor = actorOf(req);
       const now = app.clock();
       const { request, releasedOfferId } = withdrawRequest(app.db, actor, req.params.id, now);
-      if (releasedOfferId) reofferAfter(app.db, actor.siteId, request.date, releasedOfferId, now);
+      app.events.notifyUsers([actor.id]);
+      if (releasedOfferId) {
+        afterJobs(app, reofferAfter(app.db, actor.siteId, request.date, releasedOfferId, now));
+      }
       return request;
     },
   );
@@ -140,7 +144,11 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/offers/:id/accept',
     { schema: { tags, params: idParamsSchema, response: { 200: offerAcceptResponseSchema } } },
-    async (req) => acceptOffer(app.db, actorOf(req), req.params.id, app.clock()),
+    async (req) => {
+      const result = acceptOffer(app.db, actorOf(req), req.params.id, app.clock());
+      app.events.notifyUsers([actorOf(req).id]);
+      return result;
+    },
   );
   app.post(
     '/offers/:id/decline',
@@ -148,7 +156,8 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const now = app.clock();
       const { siteId, date } = declineOffer(app.db, actorOf(req), req.params.id, now);
-      reofferAfter(app.db, siteId, date, req.params.id, now);
+      app.events.notifyUsers([actorOf(req).id]);
+      afterJobs(app, reofferAfter(app.db, siteId, date, req.params.id, now));
       return { ok: true as const };
     },
   );

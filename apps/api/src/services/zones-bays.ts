@@ -1,7 +1,6 @@
 /** Zones and bays (FR-26). Bays are deactivated, never deleted, so history stays intact. */
-import { bays, zones, type Db } from '@parksmart/db';
+import { and, asc, bays, count, type Db, eq, inArray, zones } from '@parksmart/db';
 import type { Bay, BayType, Zone, ZoneKind } from '@parksmart/shared';
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { conflict } from '../lib/errors';
 import type { Actor } from '../types';
 import { assertInSite, withUniqueConflict } from './_scope';

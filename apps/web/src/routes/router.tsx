@@ -8,6 +8,8 @@ import { RecurringPage } from '@/features/booking/recurring-page';
 import { CurrentPolicyPage } from '@/features/policy/current-policy-page';
 import { PolicyPage } from '@/features/policy/policy-page';
 import { CollationPage } from '@/features/rounds/collation-page';
+import { AuditPage } from '@/features/rounds/audit-page';
+import { RoundReviewPage } from '@/features/rounds/round-review-page';
 import { RoundsPage } from '@/features/rounds/rounds-page';
 import { SitePage } from '@/features/site/site-page';
 import { useMe } from '@/lib/auth';
@@ -49,6 +51,8 @@ export const router = createBrowserRouter([
               { path: 'policy', element: <PolicyPage /> },
               { path: 'collation', element: <CollationPage /> },
               { path: 'rounds', element: <RoundsPage /> },
+              { path: 'rounds/:id', element: <RoundReviewPage /> },
+              { path: 'audit', element: <AuditPage /> },
             ],
           },
         ],

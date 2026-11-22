@@ -2,7 +2,16 @@
  * Feasibility checks before a rule can be published (FR-11, P0 part):
  * data coverage, privacy class and gaming risk. The 4-week impact simulation is P1.
  */
-import { userProfiles, users, vehicles, type Db } from '@parksmart/db';
+import {
+  and,
+  countDistinct,
+  type Db,
+  eq,
+  isNotNull,
+  userProfiles,
+  users,
+  vehicles,
+} from '@parksmart/db';
 import {
   RULE_META,
   type CoverageSource,
@@ -10,7 +19,6 @@ import {
   type RuleFeasibility,
   type RuleInput,
 } from '@parksmart/shared';
-import { and, countDistinct, eq, isNotNull } from 'drizzle-orm';
 
 export const COVERAGE_THRESHOLD = 0.9;
 

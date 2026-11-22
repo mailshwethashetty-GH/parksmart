@@ -47,7 +47,7 @@
 
 | Method | Path | Role | FR |
 | --- | --- | --- | --- |
-| GET | `/requests?from&to` (own active requests, each with `decidedBy`, `editable`, `awaitingResults`, `offer`, `waitlistPosition`) | employee, admin | FR-1 |
+| GET | `/requests?from&to` (own active requests, each with `decidedBy`, `editable`, `awaitingResults`, `offer`, `waitlistPosition`, `reason`, `booking`) | employee, admin | FR-1 |
 | GET | `/requests/calendar?from&days` (open days, deciding round, my requests, my bay types, block notices) | employee, admin | FR-1, FR-26 |
 | POST | `/requests` `{ dates[], bayType, arrivalWindow, reasonCategory?, allowFallback }` (all-or-nothing; replaces an undecided request for the same day) | employee, admin | FR-1 |
 | PATCH · DELETE | `/requests/:id` (change · withdraw) until its round runs | employee, admin | FR-4 |
@@ -55,10 +55,10 @@
 | GET/POST · PATCH | `/recurring-patterns` · `/recurring-patterns/:id` (incl. `active: false` to stop) | employee, admin | FR-3 |
 | POST · DELETE | `/recurring-patterns/:id/skips` `{ date }` · `/recurring-patterns/:id/skips/:date` | employee, admin | FR-3 |
 | GET | `/bookings?from&to` | employee | |
-| POST | `/bookings/:id/cancel` | employee | FR-4 |
+| POST | `/bookings/:id/cancel` `{ reason? }` (own, confirmed only; audited; freed today → same-day round at once) | employee, admin | FR-4 |
 | POST | `/bookings/:id/running-late` | employee | FR-22 |
 | GET | `/bookings/:id/qr` | employee | FR-21 |
-| GET | `/waitlist/me` · SSE `/stream/me` | employee | FR-20 |
+| SSE | `/stream/me` (`event: requests` when your requests change; heartbeat every 25 s). Waitlist position is on `GET /requests` | employee, admin | FR-20 |
 | POST | `/offers/:id/accept` · `/offers/:id/decline` (decline re-offers the bay at once) | employee, admin | FR-20 |
 | POST | `/appeals` | employee | FR-31 |
 | GET | `/policy/current` | any role | FR-12 |
@@ -88,13 +88,13 @@
 | POST | `/admin/rules/feasibility` `{ rules }` (unsaved rules) | admin | FR-11 |
 | POST | `/admin/policy/versions/:v/simulate` | admin | FR-11 (P1) |
 | GET/POST · POST | `/admin/approvals` · `/admin/approvals/:id/revoke` | admin | FR-13 |
-| GET | `/admin/rounds?status&limit` (built in M4) · GET `/admin/rounds/:id` (M5) | admin | FR-16 |
-| POST | `/admin/rounds/:id/approve` | admin | FR-16 |
-| POST | `/admin/allocations/:id/override` | admin | FR-16 |
+| GET | `/admin/rounds?status&limit` · `/admin/rounds/:id` (decisions with names, factor breakdown, reasons; free bays while pending) | admin | FR-16 |
+| POST | `/admin/rounds/:id/approve` `{ note? }` | admin | FR-16 |
+| POST | `/admin/allocations/:id/override` `{ action: 'assign', bayId, reason }` or `{ action: 'waitlist', reason }` (pending rounds only) | admin | FR-16 |
 | GET | `/admin/appeals` · POST `/admin/appeals/:id/resolve` | admin | FR-31 |
 | GET | `/admin/forecast` | admin | FR-27 |
 | GET | `/admin/reports/:kind` · `/admin/reports/export` | admin | FR-28 |
-| GET | `/admin/audit` · `/admin/audit/export` | admin | FR-16 |
+| GET | `/admin/audit?from&to&action&cursor&limit` (action = prefix, e.g. `policy`) · `/admin/audit/export` (CSV, formula-safe) | admin | FR-16 |
 | PATCH | `/admin/sites/:id/ai-stage` | admin | FR-18, FR-19 |
 | POST | `/admin/users/import` | admin | CSV import (P1, see I7) |
 

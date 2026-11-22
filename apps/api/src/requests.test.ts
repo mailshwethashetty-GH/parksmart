@@ -1,6 +1,5 @@
 /** M3: requests, calendar, recurring patterns and the recurring-expand job (FR-1, FR-3, FR-4). */
-import { jobRuns, requests, users } from '@parksmart/db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, jobRuns, requests, users } from '@parksmart/db';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { recurringExpandJob } from './jobs/recurring-expand';
 import { clientFor, createTestApp } from './test-utils';

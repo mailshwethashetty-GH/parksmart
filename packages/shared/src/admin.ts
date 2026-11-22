@@ -290,3 +290,78 @@ export const collationQuerySchema = z.object({
   from: isoDateSchema.optional(),
   days: z.coerce.number().int().min(1).max(31).default(10),
 });
+
+// --- round review (M5, FR-15/FR-16) -------------------------------------------------
+export const factorScoreSchema = z.object({
+  key: z.string(),
+  weight: z.number(),
+  value: z.number(),
+  contribution: z.number(),
+  neutral: z.boolean(),
+});
+export type FactorScoreLike = z.infer<typeof factorScoreSchema>;
+export const reviewDecisionSchema = z.object({
+  allocationId: id,
+  requestId: id,
+  date: isoDateSchema,
+  employee: z.object({ id, name: z.string() }),
+  requestedBayType: z.enum(BAY_TYPES),
+  arrivalWindow: z.string(),
+  reasonCategory: z.string().nullable(),
+  outcome: z.enum(['confirmed', 'waitlisted', 'ineligible']),
+  bayId: z.string().nullable(),
+  bayCode: z.string().nullable(),
+  rank: z.number().int(),
+  score: z.number(),
+  factors: z.array(factorScoreSchema),
+  reasonCode: z.string(),
+  reasonText: z.string().nullable(),
+  fallbackUsed: z.boolean(),
+  capReached: z.boolean(),
+  overridden: z.boolean(),
+});
+export type ReviewDecision = z.infer<typeof reviewDecisionSchema>;
+export const roundDetailSchema = roundSummarySchema.extend({
+  seed: z.string(),
+  policyVersion: z.number().int(),
+  decisions: z.array(reviewDecisionSchema),
+  /** Bays an admin could assign on each date (pending rounds only). */
+  freeBays: z.array(
+    z.object({
+      date: isoDateSchema,
+      bays: z.array(z.object({ id, code: z.string(), bayType: z.enum(BAY_TYPES) })),
+    }),
+  ),
+});
+export type RoundDetail = z.infer<typeof roundDetailSchema>;
+export const approveRoundSchema = z.object({ note: z.string().trim().max(500).optional() });
+export const overrideSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('assign'), bayId: id, reason: z.string().trim().min(3).max(500) }),
+  z.object({ action: z.literal('waitlist'), reason: z.string().trim().min(3).max(500) }),
+]);
+export type OverrideInput = z.infer<typeof overrideSchema>;
+
+// --- audit (FR-16) ------------------------------------------------------------------
+export const auditEntrySchema = z.object({
+  id,
+  at: isoDateTime,
+  actor: z.object({ id, name: z.string() }).nullable(),
+  action: z.string(),
+  entity: z.string(),
+  entityId: z.string().nullable(),
+  reason: z.string().nullable(),
+  before: z.unknown(),
+  after: z.unknown(),
+});
+export type AuditEntry = z.infer<typeof auditEntrySchema>;
+export const auditQuerySchema = z.object({
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+  action: z.string().trim().max(60).optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export const auditResponseSchema = z.object({
+  items: z.array(auditEntrySchema),
+  nextCursor: z.string().nullable(),
+});

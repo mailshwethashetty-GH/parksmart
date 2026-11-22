@@ -209,3 +209,8 @@ Rules at every stage:
 - AI never changes rules or weights itself. It can only suggest.
 - Scoring is deterministic and replayable.
 - Every decision is logged with its score breakdown, and the admin can override any of them.
+
+### Reasons and overrides (as built, M5)
+
+- **Reasons (FR-15):** every decision gets a deterministic template reason at run time (under 40 words: outcome, bay or why not, rank, the two factors that counted most). It never states a waitlist number, which changes; the live position is shown separately. At AI stage ≥ 1 the AI may rewrite it. A rewrite is used only if it is under 40 words and keeps every bay code and number from the template; otherwise, on a refusal, error or missing key, the template stays. Reasons that could hint at a sensitive need (accessible-approval refusals) are never sent. The AI receives pseudonymous facts only (no names, ids, emails or reason category) and every call is logged in `ai_logs` (ADR-013).
+- **Overrides (FR-16):** only while a round awaits review. "Move to waitlist" for a confirmed decision, or "assign" any bay that is free that day (not blocked, held, or already given in the round). An assign may deliberately bend eligibility (e.g. an EV bay to a car on a quiet day); it needs a reason and is audited. The employee sees "Your parking admin assigned you bay …"; the admin's reason stays internal. After publishing, changes go through cancellation, not override.

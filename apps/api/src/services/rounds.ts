@@ -10,7 +10,20 @@
  * auto-publishes when the site allows it (`auto_timeout`).
  */
 import { allocate, type AllocateResult } from '@parksmart/engine';
-import { allocations, bookings, offers, requests, rounds, waitlist, type Db } from '@parksmart/db';
+import {
+  allocations,
+  and,
+  bookings,
+  type Db,
+  eq,
+  gte,
+  inArray,
+  lte,
+  offers,
+  requests,
+  rounds,
+  waitlist,
+} from '@parksmart/db';
 import {
   addDays,
   previousWorkingDay,
@@ -22,9 +35,9 @@ import {
   type RoundType,
 } from '@parksmart/shared';
 import { randomUUID } from 'node:crypto';
-import { and, eq, gte, inArray, lte } from 'drizzle-orm';
 import { conflict, notFound } from '../lib/errors';
 import { writeAudit } from './audit';
+import { templateReason } from './reasons';
 import { buildRoundInputs } from './round-inputs';
 import { loadSite } from './site';
 
@@ -135,7 +148,21 @@ export function runRound(
         })
         .returning()
         .get();
+      // Context for the plain-language reasons (FR-15).
+      const bayCode = new Map(input.bays.map((b) => [b.id, b.code]));
+      const requestType = new Map(input.requests.map((r) => [r.id, r.bayType]));
+      const ranked = new Map<string, number>();
+      for (const d of result.decisions)
+        if (d.rank) ranked.set(d.date, Math.max(ranked.get(d.date) ?? 0, d.rank));
+      const cap = input.policy.rules.find((r) => r.key === 'peak_day_cap' && r.enabled);
       for (const d of result.decisions) {
+        const reasonText = templateReason(d, {
+          roundType: opts.type,
+          requestedType: requestType.get(d.requestId)!,
+          bayCode: d.bayId ? (bayCode.get(d.bayId) ?? null) : null,
+          rankedCount: ranked.get(d.date) ?? 0,
+          capMaxDays: cap ? Number(cap.config.maxDays) : null,
+        });
         tx.insert(allocations)
           .values({
             roundId: round.id,
@@ -152,6 +179,7 @@ export function runRound(
             },
             fallbackUsed: d.fallbackUsed,
             capReached: d.capReached,
+            reasonText,
             createdAt: opts.now,
           })
           .run();

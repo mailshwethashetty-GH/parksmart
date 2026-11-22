@@ -3,7 +3,9 @@ import {
   approvalSchema,
   approvalsResponseSchema,
   bayBlocksResponseSchema,
+  auditResponseSchema,
   collationResponseSchema,
+  roundDetailSchema,
   roundsResponseSchema,
   baySchema,
   baysResponseSchema,
@@ -17,12 +19,19 @@ import {
   zoneSchema,
   zonesResponseSchema,
   type BayType,
+  type OverrideInput,
   type Role,
   type RuleInput,
   type SiteSettings,
   type ZoneKind,
 } from '@parksmart/shared';
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { api } from './api';
 
 export const keys = {
@@ -225,4 +234,51 @@ export const useRounds = () =>
     queryKey: ['admin', 'rounds'],
     queryFn: () => api.get('/admin/rounds', roundsResponseSchema),
     refetchInterval: 60_000,
+  });
+
+// --- review and audit (M5) -------------------------------------------------------
+export const useRoundDetail = (id: string) =>
+  useQuery({
+    queryKey: ['admin', 'round', id],
+    queryFn: () => api.get(`/admin/rounds/${id}`, roundDetailSchema),
+  });
+
+export function useApproveRound(id: string) {
+  return useAdminMutation(
+    (note: string) =>
+      api.post(`/admin/rounds/${id}/approve`, roundDetailSchema, { note: note || undefined }),
+    [
+      ['admin', 'round', id],
+      ['admin', 'rounds'],
+      ['admin', 'collation'],
+    ],
+  );
+}
+
+export function useOverride(roundId: string) {
+  return useAdminMutation(
+    ({ allocationId, ...body }: { allocationId: string } & OverrideInput) =>
+      api.post(`/admin/allocations/${allocationId}/override`, okResponseSchema, body),
+    [['admin', 'round', roundId]],
+  );
+}
+
+export type AuditFilters = { action?: string; from?: string; to?: string };
+
+export function auditQueryString(f: AuditFilters, extra: Record<string, string> = {}) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries({ ...f, ...extra })) if (v) params.set(k, v);
+  return params.toString();
+}
+
+export const useAudit = (filters: AuditFilters) =>
+  useInfiniteQuery({
+    queryKey: ['admin', 'audit', filters],
+    initialPageParam: '',
+    queryFn: ({ pageParam }) =>
+      api.get(
+        `/admin/audit?${auditQueryString(filters, { cursor: pageParam, limit: '50' })}`,
+        auditResponseSchema,
+      ),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });

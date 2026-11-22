@@ -1,8 +1,18 @@
 /** M2: site setup, approvals, policy versions and feasibility (FR-8, 9, 11, 12, 13, 26). */
-import { auditLog, bays, orgs, policyVersions, rules, sites, users, zones } from '@parksmart/db';
+import {
+  and,
+  auditLog,
+  bays,
+  eq,
+  orgs,
+  policyVersions,
+  rules,
+  sites,
+  users,
+  zones,
+} from '@parksmart/db';
 import { createId } from '@paralleldrive/cuid2';
 import { DEFAULT_SITE_SETTINGS, type RuleInput } from '@parksmart/shared';
-import { and, eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clientFor, createTestApp } from './test-utils';
 

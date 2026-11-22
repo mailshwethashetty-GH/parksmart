@@ -5,6 +5,7 @@
 import { Cron } from 'croner';
 import type { FastifyInstance } from 'fastify';
 import { recurringExpandJob } from './recurring-expand';
+import { afterJobs } from './after-jobs';
 import { roundJobs } from './round-jobs';
 
 export function startScheduler(app: FastifyInstance): () => void {
@@ -14,6 +15,7 @@ export function startScheduler(app: FastifyInstance): () => void {
       try {
         const events = roundJobs(app.db, app.clock());
         for (const e of events) app.log.info(e, 'job ran');
+        afterJobs(app, events);
       } catch (err) {
         app.log.error({ err, job: 'rounds' }, 'job failed');
       }

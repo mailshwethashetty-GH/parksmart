@@ -11,7 +11,7 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 | M2 | Site setup and policy (FR-26, FR-8, FR-9, FR-11 P0, FR-12, FR-13) | Done (2026-11-22). Employees see block reasons once booking lands (M3) |
 | M3 | Requests (FR-1, FR-3, FR-4) | Done (2026-11-22). Booking cancel (rest of FR-4) comes with bookings in M5 |
 | M4 | Rounds and collation (FR-5, FR-6, FR-7) | Done (2026-11-22). Includes publishing, day-start auto-publish and same-day offers (accept/decline/expiry). Approval reminders move to M7 (notifications) |
-| M5 | Review, reasons, waitlist (FR-15, FR-16, FR-20) | Planned |
+| M5 | Review, reasons, waitlist (FR-15, FR-16, FR-20) | Done (2026-11-22). Also booking cancellation (FR-4) and live updates over SSE |
 | M6 | Check-in (FR-21, FR-22) | Planned |
 | M7 | Notifications, reports, privacy, employee profile (FR-25, FR-28 P0, DPDP) | Planned |
 | M8 | Pilot hardening and deployment | Planned |
