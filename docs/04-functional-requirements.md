@@ -10,10 +10,10 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-1 | Request a bay for a day by type (car, two-wheeler, EV, accessible, carpool), with arrival window and optional reason | 3 taps or fewer; median under 30 s; employee sees which round will decide it; EV requests can opt out of car-bay fallback ("EV bay only") | P0 | Planned |
+| FR-1 | Request a bay for a day by type (car, two-wheeler, EV, accessible, carpool), with arrival window and optional reason | 3 taps or fewer; median under 30 s; employee sees which round will decide it; EV requests can opt out of car-bay fallback ("EV bay only") | P0 | Done |
 | FR-2 | Natural-language requests and questions via Claude ("EV bay Tue–Thu next week", "why was I waitlisted?") | Parsed request shown for confirmation; nothing is submitted without a tap | P1 | Planned |
-| FR-3 | Recurring weekly pattern with single-day skips | Pattern feeds every weekly round; a skip withdraws that day's request at once | P0 | Planned |
-| FR-4 | Change or cancel a request or booking | Free edits until the round's cutoff; a cancelled confirmed bay returns to the next round within 1 min | P0 | Planned |
+| FR-3 | Recurring weekly pattern with single-day skips | Pattern feeds every weekly round; a skip withdraws that day's request at once | P0 | Done |
+| FR-4 | Change or cancel a request or booking | Free edits until the round's cutoff; a cancelled confirmed bay returns to the next round within 1 min | P0 | In progress |
 
 ## Collation
 
@@ -75,7 +75,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-26 | Site, zone and bay setup; block bays for events or documented reserved bays | Bulk block by date with a reason shown to employees; multi-site at P2 | P0 | In progress |
+| FR-26 | Site, zone and bay setup; block bays for events or documented reserved bays | Bulk block by date with a reason shown to employees; multi-site at P2 | P0 | Done |
 | FR-27 | Demand forecast by bay type for tomorrow and next week | Shown with a range; feeds the collation view and same-day pool sizing | P1 | Planned |
 | FR-28 | Reports | Utilisation, no-shows, fairness spread, disputes, override rate; one-click monthly export (P0); AI-written weekly summary (P1) | P0 / P1 | Planned |
 

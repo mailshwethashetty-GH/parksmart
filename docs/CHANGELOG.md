@@ -3,6 +3,11 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 13 — Employee profile (vehicles, optional fields, consent, export/delete) added to M7 — it was in the screens list but no milestone; employees need it to register an EV
+- 2026-11-22 — 03, 08 — Which-round-decides rule, same-day end time (default 17:00), request edit cutoff, all-or-nothing requests, pattern feed week, "withdraw = skip" for pattern requests — decided while building M3
+- 2026-11-22 — 09, 10 — Request/calendar/recurring endpoints and employee screens (/app, /app/book, /app/recurring) — built in M3
+- 2026-11-22 — 06, 07 — recurring-expand runs every 15 min, idempotent per site and week; jobs folder holds the Croner scheduler and runOnce — built in M3
+- 2026-11-22 — 04, 13 — FR-1, FR-3, FR-26 Done; FR-4 In progress (booking cancel in M5); M3 Done
 - 2026-11-22 — 09 — Admin endpoint map rewritten for M2 (one policy per site: `/admin/policy/...`; site settings PUT; bulk bays; approvals revoke; users lookup) — matches built routes
 - 2026-11-22 — 03 — Feasibility blocking rules, version rules (one draft, same-week precedence), loose-read/strict-write for stored rules — decided while building M2
 - 2026-11-22 — 04, 10, 06, 13 — FR-8/9/12/13 Done, FR-11 and FR-26 In progress; Site setup and Policy screens described; React Hook Form resolver; M2 Done — M2 complete

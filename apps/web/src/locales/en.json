@@ -23,7 +23,8 @@
     "policy": "Parking rules",
     "admin": "Admin",
     "gate": "Gate",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "book": "Book"
   },
   "admin": {
     "overview": "Overview",
@@ -32,7 +33,6 @@
   },
   "home": {
     "employeeTitle": "My parking",
-    "employeeBody": "Booking arrives in M3. You're signed in at {{site}}.",
     "gateTitle": "Gate view",
     "gateBody": "QR scanning and manual check-in arrive in M6.",
     "siteSummary": "{{zones}} zones · {{bays}} active bays",
@@ -202,5 +202,74 @@
   "errors": {
     "forbidden": "You don't have access to this page.",
     "generic": "Something went wrong."
+  },
+  "booking": {
+    "title": "Request a bay",
+    "fairness": "Bays are allocated by published rules in scheduled rounds. Requesting early gives no advantage, so request whenever suits you.",
+    "notice": "{{dates}}: some bays are blocked — {{reason}}",
+    "pickDays": "Days",
+    "pickDaysHint": "Tap one or more days. Greyed-out days are closed.",
+    "details": "Details",
+    "bayType": "Bay type",
+    "typeOnly": "{{type}} bay only",
+    "typeOnlyHint": "If no {{type}} bay is left, you'd otherwise be offered a car bay.",
+    "arrival": "Arrival time",
+    "arrivalWindows": {
+      "before_9": "Before 9:00",
+      "9_to_11": "9:00–11:00",
+      "11_to_13": "11:00–13:00",
+      "after_13": "After 13:00"
+    },
+    "reason": "Reason (optional)",
+    "reasonHint": "Business need adds to your score. Claims are spot-checked.",
+    "noReason": "No reason",
+    "reasons": {
+      "client_visit": "Client visit",
+      "event": "Event",
+      "medical_appointment": "Medical appointment",
+      "other": "Other"
+    },
+    "whoDecides": "Who decides",
+    "replaces": "replaces your current request",
+    "round": {
+      "weekly": "Weekly round",
+      "daily": "Daily round",
+      "same_day": "Same-day round"
+    },
+    "decidedBy": "{{round}} on {{runAt}} · answer by {{resultsBy}}",
+    "decidedSameDay": "{{round}} at {{runAt}} · you'll get an offer to accept",
+    "requestOne": "Request bay",
+    "requestMany": "Request {{count}} days",
+    "requestedOk": "Requested {{count}} day(s). You'll hear when the round runs.",
+    "bookCta": "Request a bay",
+    "upcoming": "Upcoming",
+    "upcomingHint": "Change or withdraw freely until the round that decides it runs.",
+    "none": "No requests yet.",
+    "fromPattern": "weekly pattern",
+    "change": "Change",
+    "withdraw": "Withdraw",
+    "status": {
+      "requested": "Requested",
+      "allocated": "Confirmed",
+      "waitlisted": "Waitlisted",
+      "withdrawn": "Withdrawn",
+      "expired": "Expired"
+    },
+    "closed": {
+      "PAST_DATE": "past",
+      "NOT_WORKING_DAY": "office closed",
+      "BEYOND_HORIZON": "too far ahead",
+      "SAME_DAY_CLOSED": "closed for today"
+    },
+    "recurringTitle": "Weekly pattern",
+    "recurringHint": "Your usual office days. Each week's requests are made for you before the weekly round; skip any day you won't come in.",
+    "newPattern": "New pattern",
+    "weekdays": "Days",
+    "savePattern": "Save pattern",
+    "everyWeek": "Every {{days}}",
+    "skipped": "Skipped",
+    "skip": "Skip",
+    "unskip": "Undo skip",
+    "stopPattern": "Stop this pattern"
   }
 }

@@ -37,8 +37,9 @@ stateDiagram-v2
 
 | Screen | Route | User | Must show |
 | --- | --- | --- | --- |
-| Home | `/app` | Employee | Next booking and status, one-tap book, today's QR code |
-| Book | `/app/book` | Employee | Calendar, bay type, recurring toggle, chat box for NL booking, which round decides it |
+| Home | `/app` | Employee | Upcoming requests with status and the round that decides each, change/withdraw, links to book and weekly pattern. Today's QR code arrives in M6 |
+| Book | `/app/book` | Employee | 4-week day grid (closed days greyed), bay types the employee may request, "EV/accessible bay only", arrival window, optional reason, block notices, which round decides each selected day. Chat box for NL booking is P1 (FR-2) |
+| Weekly pattern | `/app/recurring` | Employee | Weekday pattern, upcoming covered days with skip/undo, stop pattern |
 | Booking detail | `/app/bookings/:id` | Employee | Status, bay and zone, reason, cancel, running late, appeal |
 | Policy (read-only) | `/app/policy` | Employee | Current rules and weights in plain language |
 | Profile | `/app/profile` | Employee | Vehicles, optional fields with why-we-ask, consent, data export/delete |

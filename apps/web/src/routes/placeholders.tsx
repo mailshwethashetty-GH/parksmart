@@ -3,22 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePolicy, useSite, useZones } from '@/lib/admin-api';
-import { useMe } from '@/lib/auth';
 
-/** Placeholders replaced feature by feature (M3 booking, M6 gate). */
-export function EmployeeHome() {
-  const { t } = useTranslation();
-  const me = useMe();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('home.employeeTitle')}</CardTitle>
-        <CardDescription>{t('home.employeeBody', { site: me.data?.site.name })}</CardDescription>
-      </CardHeader>
-    </Card>
-  );
-}
-
+/** Placeholder replaced in M6 (gate). */
 /** Admin overview: what is set up so far, with links to each area. */
 export function AdminHome() {
   const { t } = useTranslation();

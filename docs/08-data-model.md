@@ -34,7 +34,7 @@
 | Table | Key columns | Notes |
 | --- | --- | --- |
 | `orgs` | id, name, email_domain | `email_domain` unique: new SSO users with that domain join this org; unknown domains are refused |
-| `sites` | id, org_id, name, timezone, ai_stage, settings_json | settings: working days, round times, approval deadlines, backup admin IDs, grace window, pool %, notification cap, `evOverflowSameDay` (default false), `autoPublishAtDayStart` (default true) |
+| `sites` | id, org_id, name, timezone, ai_stage, settings_json | settings: working days, round times (incl. same-day start/end/interval), approval deadlines, backup admin IDs, grace window, pool %, notification cap, `evOverflowSameDay` (default false), `autoPublishAtDayStart` (default true) |
 | `zones` | id, site_id, name, kind, capacity? | kind e.g. basement, two-wheeler. `capacity` for capacity-managed zones (FR-32) |
 | `bays` | id, site_id, zone_id, code, bay_type, has_charger, active | `UNIQUE(site_id, code)` |
 | `bay_blocks` | id, site_id, bay_id?, zone_id?, date_from, date_to, reason, created_by, deleted_at? | event and reserved blocks |

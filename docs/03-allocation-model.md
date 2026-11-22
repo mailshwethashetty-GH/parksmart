@@ -31,6 +31,9 @@ Rules:
 - One request per employee per day. A new request for the same day replaces the old one.
 - A request records: date, bay type, arrival window, optional reason category (`client_visit`, `event`, `medical_appointment`, `other`).
 - Recurring patterns create requests in each weekly round. Skipping a day withdraws that request.
+- **Which round decides a request** (shown to the employee, and the edit cutoff): the weekly round for that date's week if it has not run yet; otherwise the daily round on the working day before; otherwise the same-day rounds on the day, every 30 min from 07:00 until the site's same-day end time (default **17:00**). After the last same-day round, or for past days, non-working days and days beyond the horizon, the date is closed. Logic: `packages/shared/src/deciding-round.ts`.
+- A request can be changed or withdrawn until its deciding round runs. Requests are validated per date and created all-or-nothing. EV and accessible eligibility are checked when the request is made (and again by the engine).
+- Patterns feed the week the next weekly round will allocate: requests are created when the pattern is saved and by the `recurring-expand` job. A manual request for a day always wins over the pattern. Withdrawing a pattern's request counts as skipping that day, so the pattern never recreates it.
 - **Submission time is stored for audit but never scored.** Equal scores are settled by a logged random draw.
 - A **same-day pool** (default **10%** of bays) is held out of the weekly and daily rounds.
 - The admin's collation view shows requests against supply by day and bay type, the oversubscription ratio and forecast demand still to come.

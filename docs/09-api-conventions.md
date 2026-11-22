@@ -47,12 +47,13 @@
 
 | Method | Path | Role | FR |
 | --- | --- | --- | --- |
-| GET | `/requests?from&to` | employee | FR-1 |
-| POST | `/requests` | employee | FR-1 |
-| PATCH / DELETE | `/requests/:id` | employee | FR-4 |
+| GET | `/requests?from&to` (own active requests, each with `decidedBy` and `editable`) | employee, admin | FR-1 |
+| GET | `/requests/calendar?from&days` (open days, deciding round, my requests, my bay types, block notices) | employee, admin | FR-1, FR-26 |
+| POST | `/requests` `{ dates[], bayType, arrivalWindow, reasonCategory?, allowFallback }` (all-or-nothing; replaces an undecided request for the same day) | employee, admin | FR-1 |
+| PATCH · DELETE | `/requests/:id` (change · withdraw) until its round runs | employee, admin | FR-4 |
 | POST | `/requests/parse` | employee | FR-2 (Claude, returns a draft, does not submit) |
-| GET/POST/PATCH | `/recurring-patterns` | employee | FR-3 |
-| POST | `/recurring-patterns/:id/skips` | employee | FR-3 |
+| GET/POST · PATCH | `/recurring-patterns` · `/recurring-patterns/:id` (incl. `active: false` to stop) | employee, admin | FR-3 |
+| POST · DELETE | `/recurring-patterns/:id/skips` `{ date }` · `/recurring-patterns/:id/skips/:date` | employee, admin | FR-3 |
 | GET | `/bookings?from&to` | employee | |
 | POST | `/bookings/:id/cancel` | employee | FR-4 |
 | POST | `/bookings/:id/running-late` | employee | FR-22 |

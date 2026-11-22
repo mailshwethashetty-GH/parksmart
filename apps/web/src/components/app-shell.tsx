@@ -18,6 +18,7 @@ export function AppShell() {
       show: role === 'employee' || role === 'admin',
       end: true,
     },
+    { to: '/app/book', label: t('nav.book'), show: role === 'employee' || role === 'admin' },
     { to: '/app/policy', label: t('nav.policy'), show: role === 'employee' || role === 'admin' },
     { to: '/admin', label: t('nav.admin'), show: role === 'admin' },
     { to: '/gate', label: t('nav.gate'), show: role === 'security' || role === 'admin' },

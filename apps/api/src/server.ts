@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app';
 import { EnvError, loadEnv } from './config/env';
+import { startScheduler } from './jobs/scheduler';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../../..');
@@ -23,7 +24,10 @@ async function main() {
   });
   if (env.devLoginEnabled) app.log.warn('Dev-only login is ENABLED. Never use in production.');
 
+  const stopScheduler = startScheduler(app);
+
   const shutdown = async () => {
+    stopScheduler();
     await app.close();
     db.$client.close();
     process.exit(0);

@@ -9,11 +9,11 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 | M0 | Foundations, SSO + roles (FR-29) | Done (2026-11-22). SSO is wired but untested against a real IdP until D2; that check is in M8 |
 | M1 | Allocation engine (FR-14) | Done (2026-11-22). Engine and property tests complete; wired into rounds in M4 |
 | M2 | Site setup and policy (FR-26, FR-8, FR-9, FR-11 P0, FR-12, FR-13) | Done (2026-11-22). Employees see block reasons once booking lands (M3) |
-| M3 | Requests (FR-1, FR-3, FR-4) | Planned |
+| M3 | Requests (FR-1, FR-3, FR-4) | Done (2026-11-22). Booking cancel (rest of FR-4) comes with bookings in M5 |
 | M4 | Rounds and collation (FR-5, FR-6, FR-7) | Planned |
 | M5 | Review, reasons, waitlist (FR-15, FR-16, FR-20) | Planned |
 | M6 | Check-in (FR-21, FR-22) | Planned |
-| M7 | Notifications, reports, privacy (FR-25, FR-28 P0, DPDP) | Planned |
+| M7 | Notifications, reports, privacy, employee profile (FR-25, FR-28 P0, DPDP) | Planned |
 | M8 | Pilot hardening and deployment | Planned |
 
 ## M0 — Foundations (FR-29)
@@ -64,11 +64,12 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 - Daily-rotating signed QR tokens (`jose`); `/gate` with scanner, manual check-in and today's bays.
 - `auto-release` job (15-min default grace) → bay to the same-day pool; one "running late" extension per week.
 
-## M7 — Notifications, reports, privacy
+## M7 — Notifications, reports, privacy, employee profile
 
 - In-app + email through one service enforcing the 3/day cap and quiet hours (time-critical messages exempt).
 - Reports: utilisation, no-shows, fairness spread, override rate; one-click monthly export.
 - Consent at sign-up; data export and deletion; `audit-retention` job.
+- Employee profile `/app/profile` (docs/10): register vehicles incl. EV (needed for EV requests), plate only if the site requires it, optional fields (distance band) with why-we-ask and an obvious skip, consent status, data export/delete. Endpoints `PATCH /me/profile`, `/me/vehicles`, `/me/data-export`, `DELETE /me`. Until then only seeded employees have vehicles.
 
 ## M8 — Pilot hardening
 

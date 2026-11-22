@@ -28,6 +28,8 @@ export const siteSettingsSchema = z.object({
       sameDay: z
         .object({
           startTime: timeOfDaySchema.default('07:00'),
+          /** Last same-day round of the day; same-day requests close after it. */
+          endTime: timeOfDaySchema.default('17:00'),
           intervalMinutes: z.number().int().min(10).max(120).default(30),
         })
         .prefault({}),

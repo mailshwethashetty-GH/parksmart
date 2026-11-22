@@ -1,6 +1,7 @@
 /**
  * Round schedule helpers. Pure: callers pass `now`.
  */
+import { formatInTimeZone } from 'date-fns-tz';
 import type { SiteSettings } from './settings';
 import {
   addDays,
@@ -47,4 +48,14 @@ export function formatWeekdays(days: readonly number[]): string {
     return `${WEEKDAY_NAMES[sorted[0]! - 1]}–${WEEKDAY_NAMES[sorted.at(-1)! - 1]}`;
   }
   return sorted.map((d) => WEEKDAY_NAMES[d - 1]).join(', ');
+}
+
+/** An instant shown in the site's time zone, e.g. `Fri 27 Nov, 12:00`. */
+export function formatSiteTime(instant: Date | string, timeZone: string): string {
+  return formatInTimeZone(new Date(instant), timeZone, 'EEE d MMM, HH:mm');
+}
+
+/** A date with its weekday, e.g. `Wed 2 Dec`. */
+export function formatDayShort(date: IsoDate): string {
+  return formatInTimeZone(new Date(`${date}T12:00:00Z`), 'UTC', 'EEE d MMM');
 }

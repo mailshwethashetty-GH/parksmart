@@ -2,12 +2,15 @@ import { homePathForRole } from '@parksmart/shared';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from '@/components/app-shell';
 import { AdminLayout } from '@/features/admin/admin-layout';
+import { BookPage } from '@/features/booking/book-page';
+import { EmployeeHomePage } from '@/features/booking/home-page';
+import { RecurringPage } from '@/features/booking/recurring-page';
 import { CurrentPolicyPage } from '@/features/policy/current-policy-page';
 import { PolicyPage } from '@/features/policy/policy-page';
 import { SitePage } from '@/features/site/site-page';
 import { useMe } from '@/lib/auth';
 import { LoginPage } from './login';
-import { AdminHome, EmployeeHome, GateHome } from './placeholders';
+import { AdminHome, GateHome } from './placeholders';
 import { RequireRole } from './require-role';
 
 function RootRedirect() {
@@ -26,7 +29,9 @@ export const router = createBrowserRouter([
         path: '/app',
         element: <RequireRole group="/app" />,
         children: [
-          { index: true, element: <EmployeeHome /> },
+          { index: true, element: <EmployeeHomePage /> },
+          { path: 'book', element: <BookPage /> },
+          { path: 'recurring', element: <RecurringPage /> },
           { path: 'policy', element: <CurrentPolicyPage /> },
         ],
       },

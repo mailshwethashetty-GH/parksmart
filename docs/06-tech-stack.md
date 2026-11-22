@@ -56,7 +56,7 @@
 | `auto-release` | Every minute | Release bays past grace window |
 | `offer-expiry` | Every minute | Expire 10-min offers, promote next |
 | `round-deadlines` | Every 5 min | Approval reminders, "results delayed" notices, day-start auto-publish of unapproved rounds |
-| `recurring-expand` | Fri 11:00 | Create requests from recurring patterns |
+| `recurring-expand` | Every 15 min (idempotent per site and week) | Create requests from recurring patterns for the next weekly round's target week |
 | `audit-retention` | Daily 03:00 | Purge logs older than 12 months |
 | `ai-batch` | After each round | Reasons, anomaly flags (P1) |
 

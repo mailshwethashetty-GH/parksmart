@@ -50,7 +50,7 @@ parksmart/
 │     └─ src/
 │        ├─ routes/        # thin HTTP handlers, one folder per resource
 │        ├─ services/      # business logic (rounds, bookings, policy…)
-│        ├─ jobs/          # croner job definitions
+│        ├─ jobs/          # croner scheduler, idempotent runOnce (job_runs), job functions
 │        ├─ ai/            # Claude prompts, clients, fallbacks
 │        ├─ notifications/
 │        ├─ auth/          # Better Auth config, dev-only login plugin

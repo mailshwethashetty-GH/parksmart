@@ -24,6 +24,7 @@
     "@parksmart/shared": "workspace:*",
     "better-auth": "^1.7.27",
     "better-sqlite3": "^13.2.0",
+    "croner": "^11.0.1",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "drizzle-orm": "^0.45.4",

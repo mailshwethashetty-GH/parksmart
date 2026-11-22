@@ -13,6 +13,7 @@ import { adminPolicyRoutes } from './routes/admin/policy';
 import { adminSiteRoutes } from './routes/admin/site';
 import { meRoutes } from './routes/me';
 import { policyRoutes } from './routes/policy';
+import { requestRoutes } from './routes/requests';
 import { csrfRoutes, healthRoutes } from './routes/system';
 import './types';
 
@@ -47,6 +48,7 @@ export async function buildApp({ env, db, logger, webRoot, clock }: BuildAppOpti
       await api.register(csrfRoutes);
       await api.register(meRoutes);
       await api.register(policyRoutes);
+      await api.register(requestRoutes);
       await api.register(
         async (admin) => {
           await admin.register(adminSiteRoutes);
