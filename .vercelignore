@@ -1,0 +1,11 @@
+# Never upload local secrets, data or build leftovers to Vercel (CLI deploys).
+.env
+.env.*
+!.env.example
+data/
+e2e/.data/
+**/node_modules
+**/dist
+coverage/
+playwright-report/
+test-results/
