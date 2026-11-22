@@ -13,6 +13,7 @@ import { allocate, type AllocateResult } from '@parksmart/engine';
 import {
   allocations,
   and,
+  bays,
   bookings,
   type Db,
   eq,
@@ -37,6 +38,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { conflict, notFound } from '../lib/errors';
 import { writeAudit } from './audit';
+import { queueNotification } from './notifications';
 import { templateReason } from './reasons';
 import { buildRoundInputs } from './round-inputs';
 import { loadSite } from './site';
@@ -266,9 +268,26 @@ function publishInTx(
       a.allocation.rank - b.allocation.rank,
   );
   const counts = { confirmed: 0, offered: 0, waitlisted: 0, ineligible: 0 };
+  // FR-25: tell people about changes only (no repeat "still waitlisted" every round).
+  const bayCodes = new Map(
+    tx
+      .select({ id: bays.id, code: bays.code })
+      .from(bays)
+      .where(eq(bays.siteId, round.siteId))
+      .all()
+      .map((b) => [b.id, b.code]),
+  );
+  const tell = (
+    r: (typeof ordered)[number]['request'],
+    kind: 'round_result' | 'offer',
+    payload: Record<string, unknown>,
+  ) =>
+    queueNotification(tx, { userId: r.userId, kind, payload: { date: r.date, ...payload }, now });
+
   for (const { allocation: a, request: r } of ordered) {
     if (a.outcome === 'ineligible') {
       tx.update(requests).set({ status: 'expired' }).where(eq(requests.id, r.id)).run();
+      tell(r, 'round_result', { outcome: 'ineligible', reason: a.reasonText });
       counts.ineligible++;
     } else if (a.outcome === 'confirmed' && round.roundType !== 'same_day') {
       tx.insert(bookings)
@@ -284,18 +303,19 @@ function publishInTx(
         })
         .run(); // UNIQUE(bay_id, date) on held bookings guards against over-booking.
       tx.update(requests).set({ status: 'allocated' }).where(eq(requests.id, r.id)).run();
+      tell(r, 'round_result', {
+        outcome: 'confirmed',
+        bayCode: bayCodes.get(a.bayId!),
+        reason: a.reasonText,
+      });
       counts.confirmed++;
     } else if (a.outcome === 'confirmed') {
       // Same-day: an offer to accept within the site's window (FR-20).
+      const expiresAt = new Date(now.getTime() + site.settings.offerWindowMinutes * 60_000);
       tx.insert(offers)
-        .values({
-          requestId: r.id,
-          bayId: a.bayId!,
-          expiresAt: new Date(now.getTime() + site.settings.offerWindowMinutes * 60_000),
-          status: 'open',
-          createdAt: now,
-        })
+        .values({ requestId: r.id, bayId: a.bayId!, expiresAt, status: 'open', createdAt: now })
         .run();
+      tell(r, 'offer', { bayCode: bayCodes.get(a.bayId!), expiresAt: expiresAt.toISOString() });
       tx.update(requests).set({ status: 'waitlisted' }).where(eq(requests.id, r.id)).run();
       counts.offered++;
     } else {
@@ -314,6 +334,8 @@ function publishInTx(
         })
         .run();
       tx.update(requests).set({ status: 'waitlisted' }).where(eq(requests.id, r.id)).run();
+      if (r.status !== 'waitlisted')
+        tell(r, 'round_result', { outcome: 'waitlisted', reason: a.reasonText });
       counts.waitlisted++;
     }
   }

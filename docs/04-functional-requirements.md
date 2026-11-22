@@ -40,7 +40,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 | --- | --- | --- | --- | --- |
 | FR-14 | Deterministic scoring and assignment engine | Same requests and policy always give the same result; never confirms more bookings than bays; ties settled by a logged random draw; weekly rounds allocate the most oversubscribed day first; bay-type fallback as in `03-allocation-model.md` | P0 | In progress |
 | FR-15 | Plain-language reason for every decision | Employee sees a reason under 40 words; admin sees the full score breakdown by rule | P0 | Done |
-| FR-16 | Stage 1 review, override and audit log | Admin (or a backup admin) approves each weekly and daily round before publish; same-day rounds auto-publish and are audited; reminders before the approval deadline and a "results delayed" notice after it; overrides need a reason; every change logged and exportable | P0 | In progress |
+| FR-16 | Stage 1 review, override and audit log | Admin (or a backup admin) approves each weekly and daily round before publish; same-day rounds auto-publish and are audited; reminders before the approval deadline and a "results delayed" notice after it; overrides need a reason; every change logged and exportable | P0 | Done |
 | FR-20 | Waitlist with live position and auto-promotion | Promoted employee has a configurable window (default 10 min) to accept | P0 | Done |
 
 ## AI
@@ -69,7 +69,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-25 | Round results, waitlist moves, release warnings | In-app and email at P0, push at P1; max 3 per employee per day, with waitlist offers, release warnings and check-in reminders exempt from the cap and quiet hours | P0 | Planned |
+| FR-25 | Round results, waitlist moves, release warnings | In-app and email at P0, push at P1; max 3 per employee per day, with waitlist offers, release warnings and check-in reminders exempt from the cap and quiet hours | P0 | Done (P0: in-app inbox + email; the release warning 10 min before the check-in deadline is the check-in reminder). Push is P1 |
 
 ## Admin
 
@@ -77,7 +77,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 | --- | --- | --- | --- | --- |
 | FR-26 | Site, zone and bay setup; block bays for events or documented reserved bays | Bulk block by date with a reason shown to employees; multi-site at P2 | P0 | Done |
 | FR-27 | Demand forecast by bay type for tomorrow and next week | Shown with a range; feeds the collation view and same-day pool sizing | P1 | Planned |
-| FR-28 | Reports | Utilisation, no-shows, fairness spread, disputes, override rate; one-click monthly export (P0); AI-written weekly summary (P1) | P0 / P1 | Planned |
+| FR-28 | Reports | Utilisation, no-shows, fairness spread, disputes, override rate; one-click monthly export (P0); AI-written weekly summary (P1) | P0 / P1 | In progress (P0 done: `/admin/analytics` + monthly CSV. Disputes wait for appeals, FR-31; AI summary is P1) |
 
 ## Platform
 

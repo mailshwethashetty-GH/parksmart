@@ -42,6 +42,7 @@ import {
 import { businessRule, conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { deadlineFor } from './checkin';
+import { assertConsent } from './me-profile';
 import { loadSite } from './site';
 
 type Site = ReturnType<typeof loadSite>;
@@ -395,6 +396,7 @@ export function createRequests(
   input: RequestCreate,
   now: Date,
 ): EmployeeRequest[] {
+  assertConsent(db, actor.id); // DPDP: no processing without consent
   const site = loadSite(db, actor.siteId);
   const types = siteBayTypes(db, actor.siteId);
   const eligibility = eligibilityOf(db, actor.id, site, now);

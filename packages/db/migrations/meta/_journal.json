@@ -29,6 +29,13 @@
       "when": 1795329513536,
       "tag": "0003_offers_reference_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795332134662,
+      "tag": "0004_notifications_skipped_reason",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,9 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 04, 13 — FR-16 and FR-25 Done; FR-28 In progress (P0 done); M7 Done — built in M7
+- 2026-11-22 — 07, 08 — `notifications` job and email outbox (cap, quiet hours, `stale` after 30 min); `notifications.skipped_reason`; consent purposes and account-deletion anonymisation — built in M7
+- 2026-11-22 — 09, 10 — `/me` inbox, profile, vehicles, consents, export/delete; `/admin/reports/monthly` and `/export?month=`; profile, consent card, inbox bell and analytics screens — built in M7
 - 2026-11-22 — 03, 08 — Check-in deadline rule, running-late length (30 min, new setting), auto-release semantics (request expired, re-offer at once, day-end release), QR token rules — decided while building M6
 - 2026-11-22 — 06, 09, 10 — jose/qrcode.react/@zxing/browser; check-in, gate and bay-sticker endpoints and screens — built in M6
 - 2026-11-22 — 04, 13 — FR-22 Done; FR-21 In progress (4G timing check in M8); M6 Done

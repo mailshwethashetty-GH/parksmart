@@ -43,6 +43,7 @@ import { jwtVerify, SignJWT } from 'jose';
 import { AppError, businessRule, conflict, forbidden, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { writeAudit } from './audit';
+import { queueNotification } from './notifications';
 import { loadSite } from './site';
 
 const ISSUER = 'parksmart';
@@ -438,6 +439,17 @@ export function autoRelease(db: Db, now: Date): Released[] {
           },
           now,
         );
+      });
+      const bayCode = db
+        .select({ code: bays.code })
+        .from(bays)
+        .where(eq(bays.id, b.bayId))
+        .get()?.code;
+      queueNotification(db, {
+        userId: b.userId,
+        kind: 'auto_released',
+        payload: { date: b.date, bayCode },
+        now,
       });
       released.push({ siteId: b.siteId, date: b.date, bookingId: b.id, userId: b.userId });
     }

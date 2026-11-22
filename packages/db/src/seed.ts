@@ -120,7 +120,12 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
       tx.insert(s.vehicles)
         .values({ userId, type: 'car', isEv: u.ev ?? false })
         .run();
-      tx.insert(s.consents).values({ userId, purpose: 'parking_allocation', grantedAt: now }).run();
+      tx.insert(s.consents)
+        .values([
+          { userId, purpose: 'parking_allocation', grantedAt: now },
+          { userId, purpose: 'vehicle_details', grantedAt: now }, // the seed stores a vehicle
+        ])
+        .run();
     }
 
     const adminId = userIds.get('admin')!;

@@ -78,6 +78,7 @@ parksmart/
 - The web app talks to the API only, through the typed client in `apps/web/src/lib/api`.
 - Apps import Drizzle query helpers from `@parksmart/db` (which re-exports them), never from `drizzle-orm` directly: a second copy of drizzle-orm (it appeared when the Anthropic SDK added an optional peer) makes columns and operators incompatible. ESLint enforces this.
 - After each job tick, `jobs/after-jobs.ts` notifies affected employees (SSE) and starts AI reason rewrites outside the round transaction.
+- A separate `notifications` cron (every minute) queues release warnings, approval reminders and the daily `audit-retention` purge (12 months), then sends pending emails. Emails go through one outbox (`notifications` rows) that applies the 3/day cap and quiet hours; time-critical kinds (offer, release warning, approval reminder) are exempt but dropped as `stale` after 30 min. Every notice is also in the in-app inbox.
 - These rules are enforced by ESLint (`no-restricted-imports` etc. in `eslint.config.js`): the engine cannot import I/O modules or use `Math.random`/`Date.now`/`new Date()`, and `apps/api/src/routes` cannot import `@parksmart/db` or `drizzle-orm`.
 - Every route declares its roles with the `requireRole(...)` preHandler, which sets `request.actor` (id, org, site, role). Services take the actor's site for scoping.
 - Every audit entry goes through `services/audit.ts` (`writeAudit`), inside the same transaction as the change.
@@ -88,7 +89,7 @@ parksmart/
 2. `RoundService` loads requests, bays, the policy version in force for that week and history → calls `engine.allocate()` with the week's seed (the weekly round's seed, or a fresh one; ADR-012).
 3. Result saved as a `round` in status `pending_review` with all `allocations` and decision breakdowns (one transaction).
 4. AI service writes plain-language reasons (template fallback on failure).
-5. Admin (or a backup admin) reviews → approves or overrides (reason required) → status `published`, `publish_mode = admin`. The `round-deadlines` job sends reminders and, at 07:00 on the target day, auto-publishes anything still pending (`auto_timeout`).
+5. Admin (or a backup admin) reviews → approves or overrides (reason required) → status `published`, `publish_mode = admin`. Approval reminders come from the `notifications` job (60 min after the run, 15 min before the deadline); the `round-deadlines` job, at 07:00 on the target day, auto-publishes anything still pending (`auto_timeout`).
 6. Bookings created/confirmed, waitlist written, notifications queued, audit entries written.
 
 At Stage 3, step 5 is skipped. At Stage 2, only flagged exceptions need review. Same-day rounds skip step 5 at every stage (`publish_mode = auto_same_day`); see `03-allocation-model.md` §4.

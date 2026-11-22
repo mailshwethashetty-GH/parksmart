@@ -11,6 +11,7 @@ import {
   baysResponseSchema,
   currentPolicyResponseSchema,
   feasibilityResponseSchema,
+  monthlyReportSchema,
   okResponseSchema,
   policyResponseSchema,
   policyVersionDetailSchema,
@@ -281,4 +282,13 @@ export const useAudit = (filters: AuditFilters) =>
         auditResponseSchema,
       ),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+
+// --- reports (M7) -------------------------------------------------------------------
+export const useMonthlyReport = (month: string) =>
+  useQuery({
+    queryKey: ['admin', 'report', month],
+    queryFn: () => api.get(`/admin/reports/monthly?month=${month}`, monthlyReportSchema),
+    // Refetch keeps the frame: show the previous month while the next loads.
+    placeholderData: (prev) => prev,
   });

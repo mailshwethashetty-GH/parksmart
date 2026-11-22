@@ -47,7 +47,7 @@
 | `user_profiles` | user_id, distance_band?, role_tags_json, join_date?, client_facing? | optional fields score neutral when null |
 | `vehicles` | id, user_id, type, is_ev, plate? | plate optional unless site requires it |
 | `approvals` | id, user_id, kind (`accessible`), approved_by, expires_at, revoked_at? | **flag only, no medical detail** |
-| `consents` | id, user_id, purpose, granted_at, revoked_at? | DPDP |
+| `consents` | id, user_id, purpose, granted_at, revoked_at? | DPDP. Purposes: `parking_allocation` (required before any request), `vehicle_details` (revoking deletes vehicles), `ai_processing`. Account deletion revokes all, deletes vehicles/profile/notifications/push subscriptions/sessions, cancels future bookings, and anonymises the `users` row (name `Deleted user`, placeholder email, inactive) so allocation and audit history stay intact |
 | `sessions`, `accounts`, `verifications`, `sso_providers` | (Better Auth + SSO plugin) | managed by the auth library. `accounts.password` exists for the library's model but is always null (SSO only). A test checks these tables against Better Auth's schema |
 
 ### Policy
@@ -84,7 +84,7 @@
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `notifications` | id, user_id, kind, channel, time_critical, payload_json, created_at, sent_at, read_at | cap 3/day enforced in service; `time_critical` rows are exempt from the cap and quiet hours |
+| `notifications` | id, user_id, kind, channel, time_critical, payload_json, created_at, sent_at, read_at, skipped_reason? | One `in_app` row (sent at once) plus one `email` row per notice. Cap 3 emails/day enforced in the service; `time_critical` rows are exempt from the cap and quiet hours. `skipped_reason` = `daily_cap` · `no_email` · `stale` (email not sent, inbox copy kept) |
 | `push_subscriptions` | id, user_id, endpoint, keys_json | P1 |
 | `ai_logs` | id, site_id, purpose, model, input_json, output_json, latency_ms, error?, created_at | pseudonymous input only |
 | `audit_log` | id, site_id?, actor_id?, action, entity, entity_id, before_json, after_json, reason, at | **append-only**: triggers (migration `0001`) block every UPDATE, and any DELETE of a row newer than 12 months, so only the retention job can remove rows. `actor_id` null = system (scheduler) |

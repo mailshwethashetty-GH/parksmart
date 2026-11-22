@@ -30,6 +30,7 @@ import {
 import { businessRule, conflict, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import { eligibilityOf, typeProblem } from './requests';
+import { assertConsent } from './me-profile';
 import { loadSite } from './site';
 
 type PatternRow = typeof recurringPatterns.$inferSelect;
@@ -264,6 +265,7 @@ export function createPattern(
   input: PatternInput,
   now: Date,
 ): RecurringPattern {
+  assertConsent(db, actor.id);
   validate(db, actor, input, now);
   const id = db
     .insert(recurringPatterns)

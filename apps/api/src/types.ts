@@ -4,6 +4,7 @@ import type { Auth } from './auth/auth';
 import type { AiClient } from './ai/client';
 import type { Env } from './config/env';
 import type { EventBus } from './lib/events';
+import type { Mailer } from './lib/mailer';
 
 /** The signed-in user, set by `requireRole`. Site scoping comes from here. */
 export type Actor = {
@@ -23,6 +24,7 @@ declare module 'fastify' {
     /** Claude client, or null when no API key is configured. */
     ai: AiClient | null;
     events: EventBus;
+    mailer: Mailer;
   }
   interface FastifyRequest {
     actor: Actor | null;

@@ -5,7 +5,9 @@
 import { Cron } from 'croner';
 import type { FastifyInstance } from 'fastify';
 import { recurringExpandJob } from './recurring-expand';
+import { dispatchEmails } from '../services/notifications';
 import { afterJobs } from './after-jobs';
+import { notificationJobs } from './notification-jobs';
 import { roundJobs } from './round-jobs';
 
 export function startScheduler(app: FastifyInstance): () => void {
@@ -18,6 +20,20 @@ export function startScheduler(app: FastifyInstance): () => void {
         afterJobs(app, events);
       } catch (err) {
         app.log.error({ err, job: 'rounds' }, 'job failed');
+      }
+    }),
+    // Reminders, warnings and email, every minute (FR-25).
+    new Cron('* * * * *', { name: 'notifications', protect: true }, async () => {
+      try {
+        const now = app.clock();
+        for (const e of notificationJobs(app.db, now)) {
+          app.log.info({ job: e.job, key: e.key }, 'job ran');
+          app.events.notifyUsers(e.userIds);
+        }
+        const sent = await dispatchEmails(app.db, app.mailer, now);
+        if (sent.sent || sent.failed) app.log.info({ job: 'email', ...sent }, 'job ran');
+      } catch (err) {
+        app.log.error({ err, job: 'notifications' }, 'job failed');
       }
     }),
     new Cron('*/15 * * * *', { name: 'recurring-expand', protect: true }, () => {

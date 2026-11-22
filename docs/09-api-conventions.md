@@ -39,9 +39,11 @@
 | GET · POST | `/auth/dev/users` · `/auth/dev/sign-in` | public, **dev only** | Seeded-user login. Not registered in production (non-negotiable #6) |
 | GET | `/csrf-token` | public | Returns `{ token }` and sets the signed CSRF secret cookie |
 | GET | `/me` | any | |
-| PATCH | `/me/profile` | employee | |
-| GET/POST/DELETE | `/me/vehicles` | employee | |
-| GET | `/me/data-export` · DELETE `/me` | employee | DPDP |
+| GET/PATCH | `/me/profile` (distance band, vehicles, consents with their text, `requirePlate`) | employee, admin | |
+| POST | `/me/vehicles` · DELETE `/me/vehicles/:id` (needs `vehicle_details` consent; `PLATE_REQUIRED` if the site needs plates). Both return the profile | employee, admin | |
+| POST | `/me/consents` `{ purpose, granted }` | employee, admin | DPDP. Requests and patterns return 422 `CONSENT_REQUIRED` without `parking_allocation` |
+| GET | `/me/notifications` (inbox: `{ unread, items }`) · POST `/me/notifications/read` `{ ids: [...] \| "all" }` | any | FR-25 |
+| GET | `/me/data-export` (JSON attachment, own data only) · DELETE `/me` (employees only; anonymises) | any / employee | DPDP |
 
 ### Requests and bookings
 
@@ -94,7 +96,7 @@
 | POST | `/admin/allocations/:id/override` `{ action: 'assign', bayId, reason }` or `{ action: 'waitlist', reason }` (pending rounds only) | admin | FR-16 |
 | GET | `/admin/appeals` · POST `/admin/appeals/:id/resolve` | admin | FR-31 |
 | GET | `/admin/forecast` | admin | FR-27 |
-| GET | `/admin/reports/:kind` · `/admin/reports/export` | admin | FR-28 |
+| GET | `/admin/reports/monthly?month=YYYY-MM` (pilot metrics + per-day rows) · `/admin/reports/export?month=YYYY-MM` (CSV) | admin | FR-28 |
 | GET | `/admin/audit?from&to&action&cursor&limit` (action = prefix, e.g. `policy`) · `/admin/audit/export` (CSV, formula-safe) | admin | FR-16 |
 | PATCH | `/admin/sites/:id/ai-stage` | admin | FR-18, FR-19 |
 | POST | `/admin/users/import` | admin | CSV import (P1, see I7) |

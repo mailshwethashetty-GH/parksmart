@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router';
 import { cn } from '@/lib/utils';
 
-/** Admin sub-navigation. Later milestones add Rounds, Collation, Analytics and Audit. */
+/** Admin sub-navigation. */
 export function AdminLayout() {
   const { t } = useTranslation();
   const links = [
@@ -11,11 +11,12 @@ export function AdminLayout() {
     { to: '/admin/rounds', label: t('admin.rounds') },
     { to: '/admin/site', label: t('admin.site') },
     { to: '/admin/policy', label: t('admin.policy') },
+    { to: '/admin/analytics', label: t('admin.analytics') },
     { to: '/admin/audit', label: t('admin.audit') },
   ];
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label={t('nav.admin')} className="flex gap-1">
+      <nav aria-label={t('nav.admin')} className="flex flex-wrap gap-1">
         {links.map((l) => (
           <NavLink
             key={l.to}

@@ -25,6 +25,12 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   AI_MODEL_FAST: z.string().default('claude-haiku-5-5'),
   AI_MODEL_SMART: z.string().default('claude-sonnet-5-5'),
+  // Email (optional: without SMTP, emails are logged instead of sent).
+  SMTP_HOST: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  SMTP_PASS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  MAIL_FROM: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   LOG_LEVEL: z.preprocess(
     (v) => (v === '' ? undefined : v),
     z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),

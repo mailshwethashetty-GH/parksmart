@@ -15,6 +15,9 @@ import { AuditPage } from '@/features/rounds/audit-page';
 import { RoundReviewPage } from '@/features/rounds/round-review-page';
 import { RoundsPage } from '@/features/rounds/rounds-page';
 import { SitePage } from '@/features/site/site-page';
+import { AnalyticsPage } from '@/features/analytics/analytics-page';
+import { ConsentGate } from '@/features/profile/consent-gate';
+import { ProfilePage } from '@/features/profile/profile-page';
 import { useMe } from '@/lib/auth';
 import { LoginPage } from './login';
 import { AdminHome } from './placeholders';
@@ -36,11 +39,18 @@ export const router = createBrowserRouter([
         path: '/app',
         element: <RequireRole group="/app" />,
         children: [
-          { index: true, element: <EmployeeHomePage /> },
-          { path: 'book', element: <BookPage /> },
-          { path: 'recurring', element: <RecurringPage /> },
+          // The rules and the profile (consent, export, delete) stay open without consent.
           { path: 'policy', element: <CurrentPolicyPage /> },
-          { path: 'checkin', element: <BayCheckinPage /> },
+          { path: 'profile', element: <ProfilePage /> },
+          {
+            element: <ConsentGate />,
+            children: [
+              { index: true, element: <EmployeeHomePage /> },
+              { path: 'book', element: <BookPage /> },
+              { path: 'recurring', element: <RecurringPage /> },
+              { path: 'checkin', element: <BayCheckinPage /> },
+            ],
+          },
         ],
       },
       {
@@ -57,6 +67,7 @@ export const router = createBrowserRouter([
               { path: 'rounds', element: <RoundsPage /> },
               { path: 'rounds/:id', element: <RoundReviewPage /> },
               { path: 'audit', element: <AuditPage /> },
+              { path: 'analytics', element: <AnalyticsPage /> },
               { path: 'site/bays/:id/sticker', element: <BayStickerPage /> },
             ],
           },

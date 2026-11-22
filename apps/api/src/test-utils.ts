@@ -2,6 +2,7 @@ import { seed, type Db } from '@parksmart/db';
 import { createTestDb } from '@parksmart/db/testing';
 import { API_BASE, AUTH_BASE } from '@parksmart/shared';
 import type { AiClient } from './ai/client';
+import type { Email, Mailer } from './lib/mailer';
 import { buildApp } from './app';
 import { loadEnv } from './config/env';
 
@@ -15,14 +16,23 @@ export const TEST_ENV = {
 
 export async function createTestApp(
   envOverrides: Record<string, string> = {},
-  opts: { clock?: () => Date; ai?: AiClient | null } = {},
+  opts: { clock?: () => Date; ai?: AiClient | null; mailer?: Mailer } = {},
 ) {
   const db: Db = createTestDb();
   seed(db, new Date('2026-11-22T04:00:00Z'));
   const env = loadEnv({ ...TEST_ENV, ...envOverrides });
   // Tests never call the real Claude API: no client unless a fake is passed.
-  const app = await buildApp({ env, db, logger: false, clock: opts.clock, ai: opts.ai ?? null });
-  return { app, db, env };
+  const sent: Email[] = [];
+  const mailer: Mailer = opts.mailer ?? { send: async (e) => void sent.push(e) };
+  const app = await buildApp({
+    env,
+    db,
+    logger: false,
+    clock: opts.clock,
+    ai: opts.ai ?? null,
+    mailer,
+  });
+  return { app, db, env, sent };
 }
 
 type App = Awaited<ReturnType<typeof createTestApp>>['app'];

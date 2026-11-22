@@ -11,3 +11,4 @@ export * from './admin';
 export * from './deciding-round';
 export * from './requests';
 export * from './checkin';
+export * from './me';

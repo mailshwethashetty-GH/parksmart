@@ -7,7 +7,8 @@
     "choose": "Choose…",
     "all": "All",
     "actions": "Actions",
-    "remove": "Remove"
+    "remove": "Remove",
+    "cancel": "Cancel"
   },
   "login": {
     "title": "Sign in",
@@ -24,7 +25,8 @@
     "admin": "Admin",
     "gate": "Gate",
     "signOut": "Sign out",
-    "book": "Book"
+    "book": "Book",
+    "profile": "Profile"
   },
   "admin": {
     "overview": "Overview",
@@ -32,7 +34,8 @@
     "policy": "Policy",
     "collation": "Collation",
     "rounds": "Rounds",
-    "audit": "Audit"
+    "audit": "Audit",
+    "analytics": "Analytics"
   },
   "home": {
     "employeeTitle": "My parking",
@@ -416,5 +419,99 @@
     "back": "Back to site setup",
     "print": "Print",
     "caption": "Scan with your phone camera when you park here to check in."
+  },
+  "inbox": {
+    "label": "Notifications",
+    "labelUnread": "Notifications, {{count}} unread",
+    "markAll": "Mark all read",
+    "unread": "Unread",
+    "empty": "No notifications yet."
+  },
+  "consent": {
+    "title": "Before you start",
+    "intro": "ParkSmart needs your consent to use your parking data. You can read the rules first.",
+    "point1": "Only your requests, bookings and check-ins are used, and only to allocate bays.",
+    "point2": "Booking early never helps, and nothing about you is sold or shared.",
+    "point3": "You can download your data or delete your account at any time from your profile.",
+    "agree": "I agree"
+  },
+  "profile": {
+    "title": "Profile",
+    "vehicles": "Vehicles",
+    "vehiclesHint": "Tell us if you drive an EV so you can request a charging bay. No plate needed.",
+    "vehiclesHintPlate": "This site's gate needs a number plate. Mark EVs to request a charging bay.",
+    "vehicleType": {
+      "car": "Car",
+      "two_wheeler": "Two-wheeler"
+    },
+    "ev": "EV",
+    "remove": "Remove",
+    "type": "Type",
+    "plate": "Number plate",
+    "isEv": "Electric (EV)",
+    "addVehicle": "Add vehicle",
+    "vehicleConsentNeeded": "To add a vehicle, first allow \"Vehicle details\" under Consent below.",
+    "distance": "Commute distance (optional)",
+    "distanceWhy": "Why we ask: if your site's rules give weight to long commutes, this band can raise your score. Only the band is stored, never your address.",
+    "distanceLabel": "Distance from home to office",
+    "distanceSkip": "Skipping is fine. You will simply get no distance points.",
+    "distanceNone": "Prefer not to say",
+    "band": {
+      "lt_10": "Under 10 km",
+      "10_25": "10 to 25 km",
+      "gt_25": "Over 25 km"
+    },
+    "saved": "Saved.",
+    "consents": "Consent",
+    "consentsHint": "What we use your data for. Optional items can be switched off at any time.",
+    "purpose": {
+      "parking_allocation": "Parking allocation",
+      "vehicle_details": "Vehicle details",
+      "ai_processing": "AI explanations"
+    },
+    "requiredConsent": "Needed to use ParkSmart. To withdraw it, delete your account.",
+    "revokeVehicles": "Switching this off deletes your saved vehicles.",
+    "data": "Your data",
+    "dataHint": "Download everything we hold about you, or delete your account.",
+    "export": "Download my data (JSON)",
+    "delete": "Delete my account",
+    "deleteConfirm": "This cancels your future bookings, withdraws open requests, and removes your vehicles, profile and notifications. Past allocation records stay anonymised for the audit trail. This cannot be undone.",
+    "deleteYes": "Yes, delete my account"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "hint": "Pilot metrics for a month. Days in the future show no data yet.",
+    "month": "Month",
+    "export": "Download CSV",
+    "legend": "Legend",
+    "peakDays": "Peak days",
+    "otherDays": "Other working days",
+    "peakDay": "peak day",
+    "chartLabel": "Daily utilisation by working day",
+    "target": "Target {{pct}}%",
+    "noData": "No data",
+    "tooltipCounts": "{{checkedIn}} checked in · {{released}} auto-released",
+    "onTarget": "On target",
+    "offTarget": "Off target",
+    "peakUtil": "Peak-day utilisation",
+    "peakTarget": "Target: above 90%",
+    "noShows": "No-show rate",
+    "noShowTarget": "Target: below 5%",
+    "fairness": "Below fairness target",
+    "fairnessTarget": "People with under 60% of peak-day requests met",
+    "overrides": "Override rate",
+    "overrideTarget": "Target: below 2%",
+    "adoption": "Adoption",
+    "adoptionTarget": "Target: above 70% of employees",
+    "dailyTitle": "Daily utilisation",
+    "dailyHint": "Bays used by a checked-in car, out of {{bays}} active bays.",
+    "showTable": "Show as table",
+    "hideTable": "Hide table",
+    "day": "Day",
+    "requests": "Requests",
+    "bookings": "Bookings",
+    "checkedIn": "Checked in",
+    "released": "Auto-released",
+    "utilisation": "Utilisation"
   }
 }

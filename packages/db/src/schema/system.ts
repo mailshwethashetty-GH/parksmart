@@ -45,6 +45,8 @@ export const notifications = sqliteTable(
     createdAt: createdAt(),
     sentAt: timestamp('sent_at'),
     readAt: timestamp('read_at'),
+    /** Why an email was not sent (e.g. `daily_cap`, `no_email`). Null = sent or still pending. */
+    skippedReason: text('skipped_reason'),
   },
   (t) => [index('notifications_user_created_idx').on(t.userId, t.createdAt)],
 );

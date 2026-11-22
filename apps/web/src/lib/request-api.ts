@@ -113,7 +113,10 @@ export function useLiveUpdates(enabled: boolean) {
   useEffect(() => {
     if (!enabled || typeof EventSource === 'undefined') return;
     const source = new EventSource('/api/v1/stream/me');
-    const refresh = () => void qc.invalidateQueries({ queryKey: keys.all });
+    const refresh = () => {
+      void qc.invalidateQueries({ queryKey: keys.all });
+      void qc.invalidateQueries({ queryKey: ['me', 'inbox'] }); // results arrive as notices too
+    };
     source.addEventListener('requests', refresh);
     return () => source.close();
   }, [enabled, qc]);

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NotificationBell } from '@/components/notification-bell';
 import { Button } from '@/components/ui/button';
 import { useMe, useSignOut } from '@/lib/auth';
 import { useLiveUpdates } from '@/lib/request-api';
@@ -23,6 +24,7 @@ export function AppShell() {
     },
     { to: '/app/book', label: t('nav.book'), show: role === 'employee' || role === 'admin' },
     { to: '/app/policy', label: t('nav.policy'), show: role === 'employee' || role === 'admin' },
+    { to: '/app/profile', label: t('nav.profile'), show: role === 'employee' || role === 'admin' },
     { to: '/admin', label: t('nav.admin'), show: role === 'admin' },
     { to: '/gate', label: t('nav.gate'), show: role === 'security' || role === 'admin' },
   ].filter((l) => l.show);
@@ -30,9 +32,12 @@ export function AppShell() {
   return (
     <div className="min-h-dvh">
       <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <span className="font-semibold">{t('appName')}</span>
-          <nav className="flex gap-1" aria-label="Main">
+          <nav
+            className="order-last -mx-1 flex w-full gap-1 overflow-x-auto px-1 sm:order-none sm:mx-0 sm:w-auto sm:px-0"
+            aria-label="Main"
+          >
             {links.map((l) => (
               <NavLink
                 key={l.to}
@@ -40,7 +45,7 @@ export function AppShell() {
                 end={l.end}
                 className={({ isActive }) =>
                   cn(
-                    'rounded-md px-3 py-1.5 text-sm',
+                    'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm',
                     isActive ? 'bg-secondary' : 'hover:bg-secondary',
                   )
                 }
@@ -50,6 +55,7 @@ export function AppShell() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
+            {me.data && <NotificationBell />}
             <span className="hidden text-sm text-muted-foreground sm:inline">{me.data?.name}</span>
             <Button
               variant="outline"
