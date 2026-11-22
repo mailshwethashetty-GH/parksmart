@@ -1,4 +1,4 @@
-import { formatDayShort } from '@parksmart/shared';
+import { formatDayShort, formatSiteTime } from '@parksmart/shared';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
 import { Alert } from '@/components/ui/alert';
@@ -9,6 +9,7 @@ import { errorMessage } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 import { useRequests, useWithdrawRequest } from '@/lib/request-api';
 import { decidedByText, STATUS_VARIANT } from './labels';
+import { OfferCard } from './offer-card';
 
 /** /app: upcoming requests with status and who decides them; change or withdraw (FR-4). */
 export function EmployeeHomePage() {
@@ -71,6 +72,29 @@ export function EmployeeHomePage() {
                       {decidedByText(t, r.decidedBy, tz)}
                     </span>
                   )}
+                  {r.awaitingResults && (
+                    <span
+                      className={
+                        r.awaitingResults.delayed
+                          ? 'text-xs text-amber-700 dark:text-amber-300'
+                          : 'text-xs text-muted-foreground'
+                      }
+                    >
+                      {r.awaitingResults.delayed
+                        ? t('booking.resultsDelayed')
+                        : r.awaitingResults.resultsBy
+                          ? t('booking.awaitingResults', {
+                              time: formatSiteTime(r.awaitingResults.resultsBy, tz),
+                            })
+                          : t('booking.awaitingResultsSoon')}
+                    </span>
+                  )}
+                  {r.waitlistPosition && !r.offer && (
+                    <span className="text-xs text-muted-foreground">
+                      {t('booking.position', { n: r.waitlistPosition })}
+                    </span>
+                  )}
+                  {r.offer && <OfferCard date={r.date} offer={r.offer} />}
                 </div>
                 <div className="flex gap-1">
                   {r.editable && (

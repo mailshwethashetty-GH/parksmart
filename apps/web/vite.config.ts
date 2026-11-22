@@ -4,7 +4,8 @@ import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const API_TARGET = 'http://127.0.0.1:3000';
+// Override to point the dev server at another API (e.g. a throwaway instance).
+const API_TARGET = process.env.API_TARGET ?? 'http://127.0.0.1:3000';
 
 export default defineConfig({
   plugins: [

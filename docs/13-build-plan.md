@@ -10,7 +10,7 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 | M1 | Allocation engine (FR-14) | Done (2026-11-22). Engine and property tests complete; wired into rounds in M4 |
 | M2 | Site setup and policy (FR-26, FR-8, FR-9, FR-11 P0, FR-12, FR-13) | Done (2026-11-22). Employees see block reasons once booking lands (M3) |
 | M3 | Requests (FR-1, FR-3, FR-4) | Done (2026-11-22). Booking cancel (rest of FR-4) comes with bookings in M5 |
-| M4 | Rounds and collation (FR-5, FR-6, FR-7) | Planned |
+| M4 | Rounds and collation (FR-5, FR-6, FR-7) | Done (2026-11-22). Includes publishing, day-start auto-publish and same-day offers (accept/decline/expiry). Approval reminders move to M7 (notifications) |
 | M5 | Review, reasons, waitlist (FR-15, FR-16, FR-20) | Planned |
 | M6 | Check-in (FR-21, FR-22) | Planned |
 | M7 | Notifications, reports, privacy, employee profile (FR-25, FR-28 P0, DPDP) | Planned |
@@ -67,6 +67,7 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 ## M7 — Notifications, reports, privacy, employee profile
 
 - In-app + email through one service enforcing the 3/day cap and quiet hours (time-critical messages exempt).
+- Approval reminders to the admin and backup admins: 60 min after a weekly/daily round runs and 15 min before its deadline (ADR-008).
 - Reports: utilisation, no-shows, fairness spread, override rate; one-click monthly export.
 - Consent at sign-up; data export and deletion; `audit-retention` job.
 - Employee profile `/app/profile` (docs/10): register vehicles incl. EV (needed for EV requests), plate only if the site requires it, optional fields (distance band) with why-we-ask and an obvious skip, consent status, data export/delete. Endpoints `PATCH /me/profile`, `/me/vehicles`, `/me/data-export`, `DELETE /me`. Until then only seeded employees have vehicles.

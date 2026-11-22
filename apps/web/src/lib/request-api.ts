@@ -10,6 +10,7 @@ import {
   type ReasonCategory,
 } from '@parksmart/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import { api } from './api';
 
 const keys = {
@@ -36,7 +37,12 @@ export const useCalendar = () =>
   });
 
 export const useRequests = () =>
-  useQuery({ queryKey: keys.list, queryFn: () => api.get('/requests', requestsResponseSchema) });
+  useQuery({
+    queryKey: keys.list,
+    queryFn: () => api.get('/requests', requestsResponseSchema),
+    // Offers last minutes, so check often. (Live push over SSE arrives in M5.)
+    refetchInterval: 30_000,
+  });
 
 export type RequestDraft = {
   dates: string[];
@@ -80,4 +86,14 @@ export const useToggleSkip = () =>
     skipped
       ? api.delete(`/recurring-patterns/${id}/skips/${date}`, recurringPatternSchema)
       : api.post(`/recurring-patterns/${id}/skips`, recurringPatternSchema, { date }),
+  );
+
+export const useAcceptOffer = () =>
+  useRequestMutation((id: string) =>
+    api.post(`/offers/${id}/accept`, z.object({ bookingId: z.string() })),
+  );
+
+export const useDeclineOffer = () =>
+  useRequestMutation((id: string) =>
+    api.post(`/offers/${id}/decline`, z.object({ ok: z.literal(true) })),
   );

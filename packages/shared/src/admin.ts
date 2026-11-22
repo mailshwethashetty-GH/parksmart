@@ -236,3 +236,57 @@ export const currentPolicyResponseSchema = z.object({
 export type CurrentPolicyResponse = z.infer<typeof currentPolicyResponseSchema>;
 
 export const okResponseSchema = z.object({ ok: z.literal(true) });
+
+// --- rounds and collation (M4) ---------------------------------------------------
+export const roundSummarySchema = z.object({
+  id,
+  roundType: z.enum(['weekly', 'daily', 'same_day']),
+  targetDateFrom: isoDateSchema,
+  targetDateTo: isoDateSchema,
+  status: z.enum(['collecting', 'pending_review', 'published', 'failed']),
+  runAt: isoDateTime.nullable(),
+  approvalDeadline: isoDateTime.nullable(),
+  /** Past the approval deadline and still pending (ADR-008). */
+  delayed: z.boolean(),
+  publishMode: z.enum(['admin', 'auto_same_day', 'auto_timeout', 'auto_stage3']).nullable(),
+  publishedAt: isoDateTime.nullable(),
+  counts: z.object({
+    confirmed: z.number().int(),
+    waitlisted: z.number().int(),
+    ineligible: z.number().int(),
+  }),
+});
+export type RoundSummary = z.infer<typeof roundSummarySchema>;
+export const roundsResponseSchema = z.object({ items: z.array(roundSummarySchema) });
+export const roundsQuerySchema = z.object({
+  status: z.enum(['pending_review', 'published']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export const collationCellSchema = z.object({
+  bayType: z.enum(BAY_TYPES),
+  /** Active bays of this type not blocked that day. */
+  supply: z.number().int(),
+  /** Held back for the same-day pool in weekly/daily rounds. */
+  heldForSameDay: z.number().int(),
+  requests: z.number().int(),
+  confirmed: z.number().int(),
+  waitlisted: z.number().int(),
+  /** requests ÷ (supply − held). Null when nothing is allocatable. */
+  oversubscription: z.number().nullable(),
+  /** Expected requests still to come (same weekday, last 4 weeks). Null without history. */
+  forecastRemaining: z.number().int().nullable(),
+});
+export const collationDaySchema = z.object({
+  date: isoDateSchema,
+  cells: z.array(collationCellSchema),
+  rounds: z.array(
+    z.object({ id, roundType: z.enum(['weekly', 'daily', 'same_day']), status: z.string() }),
+  ),
+});
+export const collationResponseSchema = z.object({ days: z.array(collationDaySchema) });
+export type CollationResponse = z.infer<typeof collationResponseSchema>;
+export const collationQuerySchema = z.object({
+  from: isoDateSchema.optional(),
+  days: z.coerce.number().int().min(1).max(31).default(10),
+});

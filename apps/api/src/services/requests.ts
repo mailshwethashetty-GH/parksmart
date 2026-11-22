@@ -5,12 +5,16 @@
  * - submission time is stored for audit only, never scored
  */
 import {
+  allocations,
   approvals,
   bayBlocks,
   bays,
+  offers,
   recurringSkips,
   requests,
+  rounds,
   vehicles,
+  waitlist,
   type Db,
 } from '@parksmart/db';
 import {
@@ -48,8 +52,57 @@ export function decidedBy(site: Site, date: IsoDate, now: Date): DecidedBy | nul
     : null;
 }
 
-export function toEmployeeRequest(row: RequestRow, site: Site, now: Date): EmployeeRequest {
-  const decided = row.status === 'requested' ? decidedBy(site, row.date, now) : null;
+/** Round-review locks, open offers and waitlist positions for a set of requests. */
+export type RequestContext = {
+  review: Map<string, { resultsBy: Date | null }>;
+  offers: Map<string, { id: string; bayCode: string; expiresAt: Date }>;
+  positions: Map<string, number>;
+};
+const EMPTY_CONTEXT: RequestContext = {
+  review: new Map(),
+  offers: new Map(),
+  positions: new Map(),
+};
+
+export function requestContext(db: Db, ids: string[]): RequestContext {
+  if (ids.length === 0) return EMPTY_CONTEXT;
+  const review = new Map(
+    db
+      .select({ requestId: allocations.requestId, deadline: rounds.approvalDeadline })
+      .from(allocations)
+      .innerJoin(rounds, eq(rounds.id, allocations.roundId))
+      .where(and(eq(rounds.status, 'pending_review'), inArray(allocations.requestId, ids)))
+      .all()
+      .map((r) => [r.requestId, { resultsBy: r.deadline }]),
+  );
+  const entries = db.select().from(waitlist).where(inArray(waitlist.requestId, ids)).all();
+  const open = db
+    .select({ offer: offers, bayCode: bays.code, requestId: offers.requestId })
+    .from(offers)
+    .innerJoin(bays, eq(bays.id, offers.bayId))
+    .where(and(eq(offers.status, 'open'), inArray(offers.requestId, ids)))
+    .all();
+  return {
+    review,
+    offers: new Map(
+      open.map((o) => [
+        o.requestId,
+        { id: o.offer.id, bayCode: o.bayCode, expiresAt: o.offer.expiresAt },
+      ]),
+    ),
+    positions: new Map(entries.filter((e) => e.position > 0).map((e) => [e.requestId, e.position])),
+  };
+}
+
+export function toEmployeeRequest(
+  row: RequestRow,
+  site: Site,
+  now: Date,
+  ctx: RequestContext = EMPTY_CONTEXT,
+): EmployeeRequest {
+  const inReview = ctx.review.get(row.id);
+  const decided = row.status === 'requested' && !inReview ? decidedBy(site, row.date, now) : null;
+  const offer = ctx.offers.get(row.id);
   return {
     id: row.id,
     date: row.date,
@@ -60,7 +113,19 @@ export function toEmployeeRequest(row: RequestRow, site: Site, now: Date): Emplo
     status: row.status,
     recurringPatternId: row.recurringPatternId,
     decidedBy: decided,
+    // Locked once its round has run, including while that round awaits review (FR-4).
     editable: row.status === 'requested' && decided !== null,
+    awaitingResults: inReview
+      ? {
+          resultsBy: inReview.resultsBy?.toISOString() ?? null,
+          // ADR-008: after the deadline, say so instead of leaving people guessing.
+          delayed: !!inReview.resultsBy && now.getTime() > inReview.resultsBy.getTime(),
+        }
+      : null,
+    offer: offer
+      ? { id: offer.id, bayCode: offer.bayCode, expiresAt: offer.expiresAt.toISOString() }
+      : null,
+    waitlistPosition: row.status === 'waitlisted' ? (ctx.positions.get(row.id) ?? null) : null,
   };
 }
 
@@ -157,13 +222,17 @@ export function listRequests(
   const site = loadSite(db, actor.siteId);
   const start = from ?? siteLocalDate(now, site.timezone);
   const end = to ?? addDays(start, 42);
-  return db
+  const rows = db
     .select()
     .from(requests)
     .where(and(ownActive(actor.id), gte(requests.date, start), lte(requests.date, end)))
     .orderBy(asc(requests.date))
-    .all()
-    .map((r) => toEmployeeRequest(r, site, now));
+    .all();
+  const ctx = requestContext(
+    db,
+    rows.map((r) => r.id),
+  );
+  return rows.map((r) => toEmployeeRequest(r, site, now, ctx));
 }
 
 export function getCalendar(
@@ -242,6 +311,10 @@ export function createRequests(
       .map((r) => [r.date, r]),
   );
 
+  const inReview = requestContext(
+    db,
+    [...existing.values()].map((r) => r.id),
+  ).review;
   const problems: Problem[] = [];
   for (const date of input.dates) {
     const d = decidingRound({ date, now, timeZone: site.timezone, settings: site.settings });
@@ -252,7 +325,13 @@ export function createRequests(
     const typeIssue = typeProblem(input.bayType, date, types, eligibility);
     if (typeIssue) problems.push({ date, ...typeIssue });
     const prior = existing.get(date);
-    if (prior && prior.status !== 'requested') {
+    if (prior && inReview.has(prior.id)) {
+      problems.push({
+        date,
+        code: 'ROUND_IN_REVIEW',
+        message: 'A round has already decided this day and is awaiting approval.',
+      });
+    } else if (prior && prior.status !== 'requested') {
       problems.push({
         date,
         code: 'ALREADY_DECIDED',
@@ -305,7 +384,8 @@ export function createRequests(
     .where(inArray(requests.id, ids))
     .orderBy(asc(requests.date))
     .all();
-  return rows.map((r) => toEmployeeRequest(r, site, now));
+  const ctx = requestContext(db, ids);
+  return rows.map((r) => toEmployeeRequest(r, site, now, ctx));
 }
 
 function ownRequest(db: Db, actor: Actor, id: string): RequestRow {
@@ -326,7 +406,7 @@ export function updateRequest(
 ): EmployeeRequest {
   const site = loadSite(db, actor.siteId);
   const row = ownRequest(db, actor, id);
-  if (!toEmployeeRequest(row, site, now).editable) {
+  if (!toEmployeeRequest(row, site, now, requestContext(db, [row.id])).editable) {
     throw conflict('This request can no longer be changed: its round has run.');
   }
   if (patch.bayType && patch.bayType !== row.bayType) {
@@ -342,10 +422,20 @@ export function updateRequest(
     .set({ ...patch, submittedAt: now })
     .where(eq(requests.id, id))
     .run();
-  return toEmployeeRequest(db.select().from(requests).where(eq(requests.id, id)).get()!, site, now);
+  return toEmployeeRequest(
+    db.select().from(requests).where(eq(requests.id, id)).get()!,
+    site,
+    now,
+    requestContext(db, [id]),
+  );
 }
 
-export function withdrawRequest(db: Db, actor: Actor, id: string, now: Date): EmployeeRequest {
+export function withdrawRequest(
+  db: Db,
+  actor: Actor,
+  id: string,
+  now: Date,
+): { request: EmployeeRequest; releasedOfferId: string | null } {
   const site = loadSite(db, actor.siteId);
   const row = ownRequest(db, actor, id);
   if (row.status === 'allocated') {
@@ -354,8 +444,19 @@ export function withdrawRequest(db: Db, actor: Actor, id: string, now: Date): Em
   if (row.status !== 'requested' && row.status !== 'waitlisted') {
     throw conflict('This request is no longer active.');
   }
+  const ctx = requestContext(db, [row.id]);
+  if (ctx.review.has(row.id)) {
+    throw conflict(
+      'A round has decided this day and is awaiting approval. You can act once results are out.',
+    );
+  }
+  const openOffer = ctx.offers.get(row.id);
   db.transaction((tx) => {
     tx.update(requests).set({ status: 'withdrawn' }).where(eq(requests.id, id)).run();
+    // Withdrawing while holding an offer releases the bay for the next person.
+    if (openOffer)
+      tx.update(offers).set({ status: 'declined' }).where(eq(offers.id, openOffer.id)).run();
+    tx.delete(waitlist).where(eq(waitlist.requestId, id)).run();
     // Withdrawing a pattern's request skips that day, so the pattern won't recreate it.
     if (row.recurringPatternId) {
       tx.insert(recurringSkips)
@@ -364,5 +465,8 @@ export function withdrawRequest(db: Db, actor: Actor, id: string, now: Date): Em
         .run();
     }
   });
-  return toEmployeeRequest({ ...row, status: 'withdrawn' }, site, now);
+  return {
+    request: toEmployeeRequest({ ...row, status: 'withdrawn' }, site, now),
+    releasedOfferId: openOffer?.id ?? null,
+  };
 }

@@ -83,7 +83,7 @@ parksmart/
 ## Round lifecycle (Stage 1)
 
 1. Scheduler fires `weekly-round` → inserts a `job_runs` row (unique key `weekly:<site>:<week>`). If it already exists, stop.
-2. `RoundService` loads requests, bays, active policy and history → calls `engine.allocate()` with a fresh seed.
+2. `RoundService` loads requests, bays, the policy version in force for that week and history → calls `engine.allocate()` with the week's seed (the weekly round's seed, or a fresh one; ADR-012).
 3. Result saved as a `round` in status `pending_review` with all `allocations` and decision breakdowns (one transaction).
 4. AI service writes plain-language reasons (template fallback on failure).
 5. Admin (or a backup admin) reviews → approves or overrides (reason required) → status `published`, `publish_mode = admin`. The `round-deadlines` job sends reminders and, at 07:00 on the target day, auto-publishes anything still pending (`auto_timeout`).

@@ -48,14 +48,16 @@
 
 ### Scheduled jobs
 
+All round jobs run from one Croner tick every minute, in this order for each site: round-deadlines → weekly → daily → same-day, then offer-expiry. Each claims a `job_runs` key first (`weekly:<site>:<week>`, `daily:<site>:<date>`, `same-day:<site>:<date>:<HH:mm>`), so restarts never double-run.
+
 | Job | Schedule (site time) | Purpose |
 | --- | --- | --- |
-| `weekly-round` | Fri 12:00 | Allocate next Mon–Fri |
-| `daily-round` | 18:00 on each working day | Allocate the next working day's changes and waitlist (Friday covers Monday) |
-| `same-day-round` | Every 30 min from 07:00 | Pool, waitlist, released no-shows |
+| `weekly-round` | Fri 12:00 (checked every minute; once per target week) | Allocate next Mon–Fri |
+| `daily-round` | 18:00 on each working day (waits while an earlier round for that day is pending) | Allocate the next working day's changes and waitlist (Friday covers Monday) |
+| `same-day-round` | Every 30 min, 07:00–17:00 (same waiting rule); also straight after an offer is declined or expires | Pool, waitlist, released no-shows → 10-min offers |
 | `auto-release` | Every minute | Release bays past grace window |
-| `offer-expiry` | Every minute | Expire 10-min offers, promote next |
-| `round-deadlines` | Every 5 min | Approval reminders, "results delayed" notices, day-start auto-publish of unapproved rounds |
+| `offer-expiry` | Every minute | Expire 10-min offers, re-offer the bay at once |
+| `round-deadlines` | Every minute | Day-start auto-publish of unapproved rounds (built in M4); approval reminders arrive with notifications (M7). "Results delayed" is shown from round data |
 | `recurring-expand` | Every 15 min (idempotent per site and week) | Create requests from recurring patterns for the next weekly round's target week |
 | `audit-retention` | Daily 03:00 | Purge logs older than 12 months |
 | `ai-batch` | After each round | Reasons, anomaly flags (P1) |

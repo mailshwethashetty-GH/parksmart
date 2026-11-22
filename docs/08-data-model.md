@@ -69,7 +69,7 @@
 | `allocations` | id, round_id, request_id, bay_id?, outcome (`confirmed`/`waitlisted`/`ineligible`), rank, score, score_breakdown_json, fallback_used, cap_reached, reason_text | one per request per round |
 | `bookings` | id, site_id, user_id, bay_id, date, status, allocation_id, late_extension_used | **`UNIQUE(bay_id, date)` WHERE status IN (`confirmed`,`checked_in`)**; also `UNIQUE(user_id, date)` on the same statuses (one bay per employee per day). Status meanings: `cancelled` = employee cancelled before check-in; `auto_released` = no check-in within grace; `released` = checked in, then left or the day ended |
 | `waitlist` | id, site_id, date, bay_type, request_id, position, cap_reached | `request_id` unique; capped entries sit behind uncapped ones (ADR-009) |
-| `offers` | id, waitlist_id, bay_id, expires_at, status (`open`,`accepted`,`declined`,`expired`) | |
+| `offers` | id, request_id, bay_id, expires_at, status (`open`,`accepted`,`declined`,`expired`) | References the request, not a waitlist row (migrations 0002–0003): the queue changes, offers are history. An offered request has no waitlist row |
 | `overrides` | id, allocation_id, admin_id, before_json, after_json, reason | reason required |
 | `appeals` | id, site_id, allocation_id?, booking_id?, user_id, text, status (`open`,`upheld`,`rejected`), resolved_by?, resolved_at? | P1 |
 

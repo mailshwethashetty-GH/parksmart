@@ -3,6 +3,8 @@ import {
   approvalSchema,
   approvalsResponseSchema,
   bayBlocksResponseSchema,
+  collationResponseSchema,
+  roundsResponseSchema,
   baySchema,
   baysResponseSchema,
   currentPolicyResponseSchema,
@@ -204,4 +206,23 @@ export const useCurrentPolicy = () =>
   useQuery({
     queryKey: keys.currentPolicy,
     queryFn: () => api.get('/policy/current', currentPolicyResponseSchema),
+  });
+
+// --- rounds and collation (M4) ---------------------------------------------------
+export const useCollation = (from: string | undefined, days = 10) =>
+  useQuery({
+    queryKey: ['admin', 'collation', from ?? '', days],
+    queryFn: () =>
+      api.get(
+        `/admin/collation?days=${days}${from ? `&from=${from}` : ''}`,
+        collationResponseSchema,
+      ),
+    refetchInterval: 60_000,
+  });
+
+export const useRounds = () =>
+  useQuery({
+    queryKey: ['admin', 'rounds'],
+    queryFn: () => api.get('/admin/rounds', roundsResponseSchema),
+    refetchInterval: 60_000,
   });

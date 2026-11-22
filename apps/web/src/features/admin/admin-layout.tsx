@@ -7,6 +7,8 @@ export function AdminLayout() {
   const { t } = useTranslation();
   const links = [
     { to: '/admin', label: t('admin.overview'), end: true },
+    { to: '/admin/collation', label: t('admin.collation') },
+    { to: '/admin/rounds', label: t('admin.rounds') },
     { to: '/admin/site', label: t('admin.site') },
     { to: '/admin/policy', label: t('admin.policy') },
   ];

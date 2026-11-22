@@ -47,7 +47,7 @@
 
 | Method | Path | Role | FR |
 | --- | --- | --- | --- |
-| GET | `/requests?from&to` (own active requests, each with `decidedBy` and `editable`) | employee, admin | FR-1 |
+| GET | `/requests?from&to` (own active requests, each with `decidedBy`, `editable`, `awaitingResults`, `offer`, `waitlistPosition`) | employee, admin | FR-1 |
 | GET | `/requests/calendar?from&days` (open days, deciding round, my requests, my bay types, block notices) | employee, admin | FR-1, FR-26 |
 | POST | `/requests` `{ dates[], bayType, arrivalWindow, reasonCategory?, allowFallback }` (all-or-nothing; replaces an undecided request for the same day) | employee, admin | FR-1 |
 | PATCH · DELETE | `/requests/:id` (change · withdraw) until its round runs | employee, admin | FR-4 |
@@ -59,7 +59,7 @@
 | POST | `/bookings/:id/running-late` | employee | FR-22 |
 | GET | `/bookings/:id/qr` | employee | FR-21 |
 | GET | `/waitlist/me` · SSE `/stream/me` | employee | FR-20 |
-| POST | `/offers/:id/accept` · `/offers/:id/decline` | employee | FR-20 |
+| POST | `/offers/:id/accept` · `/offers/:id/decline` (decline re-offers the bay at once) | employee, admin | FR-20 |
 | POST | `/appeals` | employee | FR-31 |
 | GET | `/policy/current` | any role | FR-12 |
 
@@ -80,7 +80,7 @@
 | GET/POST · POST · PATCH | `/admin/bays?zoneId` · `/admin/bays/bulk` · `/admin/bays/:id` (deactivate, never delete) | admin | FR-26 |
 | GET/POST · DELETE | `/admin/bay-blocks?from&to` · `/admin/bay-blocks/:id` (soft delete) | admin | FR-26 |
 | GET | `/admin/users?q&role` | admin | pickers (approvals, backup admins) |
-| GET | `/admin/collation?from&to` | admin | FR-7 |
+| GET | `/admin/collation?from&days` (working days; per bay type: supply, same-day hold-back, requests, confirmed, waitlisted, oversubscription, forecast) | admin | FR-7 |
 | GET | `/admin/policy` (the site's one policy + version statuses) | admin | FR-12 |
 | GET · POST | `/admin/policy/versions/:v` · `/admin/policy/versions` (new draft, copies latest) | admin | FR-8, FR-12 |
 | PUT · DELETE | `/admin/policy/versions/:v/rules` (replace a draft's rules) · `/admin/policy/versions/:v` (discard draft) | admin | FR-8 |
@@ -88,7 +88,7 @@
 | POST | `/admin/rules/feasibility` `{ rules }` (unsaved rules) | admin | FR-11 |
 | POST | `/admin/policy/versions/:v/simulate` | admin | FR-11 (P1) |
 | GET/POST · POST | `/admin/approvals` · `/admin/approvals/:id/revoke` | admin | FR-13 |
-| GET | `/admin/rounds?status` · GET `/admin/rounds/:id` | admin | FR-16 |
+| GET | `/admin/rounds?status&limit` (built in M4) · GET `/admin/rounds/:id` (M5) | admin | FR-16 |
 | POST | `/admin/rounds/:id/approve` | admin | FR-16 |
 | POST | `/admin/allocations/:id/override` | admin | FR-16 |
 | GET | `/admin/appeals` · POST `/admin/appeals/:id/resolve` | admin | FR-31 |

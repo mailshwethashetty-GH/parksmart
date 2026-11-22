@@ -10,6 +10,7 @@ import { securityPlugin } from './plugins/security';
 import { webStaticPlugin } from './plugins/web-static';
 import { adminPeopleRoutes } from './routes/admin/people';
 import { adminPolicyRoutes } from './routes/admin/policy';
+import { adminRoundRoutes } from './routes/admin/rounds';
 import { adminSiteRoutes } from './routes/admin/site';
 import { meRoutes } from './routes/me';
 import { policyRoutes } from './routes/policy';
@@ -54,6 +55,7 @@ export async function buildApp({ env, db, logger, webRoot, clock }: BuildAppOpti
           await admin.register(adminSiteRoutes);
           await admin.register(adminPeopleRoutes);
           await admin.register(adminPolicyRoutes);
+          await admin.register(adminRoundRoutes);
         },
         { prefix: '/admin' },
       );

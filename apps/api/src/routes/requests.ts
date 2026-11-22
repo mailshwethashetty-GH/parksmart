@@ -13,9 +13,13 @@ import {
   requestUpdateSchema,
   skipBodySchema,
   skipParamsSchema,
+  offerAcceptResponseSchema,
+  okResponseSchema,
 } from '@parksmart/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { reofferAfter } from '../jobs/round-jobs';
 import { actorOf, requireRole } from '../plugins/auth';
+import { acceptOffer, declineOffer } from '../services/offers';
 import {
   createPattern,
   listPatterns,
@@ -76,7 +80,13 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
   app.delete(
     '/requests/:id',
     { schema: { tags, params: idParamsSchema, response: { 200: requestSchema } } },
-    async (req) => withdrawRequest(app.db, actorOf(req), req.params.id, app.clock()),
+    async (req) => {
+      const actor = actorOf(req);
+      const now = app.clock();
+      const { request, releasedOfferId } = withdrawRequest(app.db, actor, req.params.id, now);
+      if (releasedOfferId) reofferAfter(app.db, actor.siteId, request.date, releasedOfferId, now);
+      return request;
+    },
   );
 
   app.get(
@@ -124,5 +134,22 @@ export const requestRoutes: FastifyPluginAsyncZod = async (app) => {
     '/recurring-patterns/:id/skips/:date',
     { schema: { tags, params: skipParamsSchema, response: { 200: recurringPatternSchema } } },
     async (req) => unskipDate(app.db, actorOf(req), req.params.id, req.params.date, app.clock()),
+  );
+
+  // Same-day offers (FR-20): accept within the window, or decline to pass it on.
+  app.post(
+    '/offers/:id/accept',
+    { schema: { tags, params: idParamsSchema, response: { 200: offerAcceptResponseSchema } } },
+    async (req) => acceptOffer(app.db, actorOf(req), req.params.id, app.clock()),
+  );
+  app.post(
+    '/offers/:id/decline',
+    { schema: { tags, params: idParamsSchema, response: { 200: okResponseSchema } } },
+    async (req) => {
+      const now = app.clock();
+      const { siteId, date } = declineOffer(app.db, actorOf(req), req.params.id, now);
+      reofferAfter(app.db, siteId, date, req.params.id, now);
+      return { ok: true as const };
+    },
   );
 };

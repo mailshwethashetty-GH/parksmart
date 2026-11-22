@@ -210,9 +210,10 @@ export const offers = sqliteTable(
   'offers',
   {
     id: id(),
-    waitlistId: text('waitlist_id')
+    /** The request being offered a bay. (Not the waitlist row: the queue changes; offers are history.) */
+    requestId: text('request_id')
       .notNull()
-      .references(() => waitlist.id),
+      .references(() => requests.id),
     bayId: text('bay_id')
       .notNull()
       .references(() => bays.id),
@@ -220,7 +221,10 @@ export const offers = sqliteTable(
     status: text('status', { enum: OFFER_STATUSES }).notNull().default('open'),
     createdAt: createdAt(),
   },
-  (t) => [index('offers_status_expires_idx').on(t.status, t.expiresAt)],
+  (t) => [
+    index('offers_status_expires_idx').on(t.status, t.expiresAt),
+    index('offers_request_idx').on(t.requestId),
+  ],
 );
 
 export const overrides = sqliteTable('overrides', {

@@ -16,6 +16,14 @@ Record significant decisions with trade-offs here: anything someone might later 
 
 ---
 
+## ADR-012 — One tie-break seed per week, shared by all rounds
+- Date: 2026-11-22
+- Status: Accepted
+- Context: Each round drew a fresh random seed. Equal scores could then break differently in the weekly, daily and same-day rounds for the same date, so the person shown first on the waitlist could lose a same-day offer to second place by a new coin flip — undermining the "live position" promised to employees.
+- Decision: Rounds reuse the seed of that week's weekly round (or a fresh one if no weekly round ran). The tie-break draw depends only on (seed, date, request), so ties resolve identically in every round for a date. Real score changes (e.g. wins earlier in the week) can still reorder people.
+- Alternatives: Fresh seed per round (rejected: unstable positions); carry waitlist order forward and skip re-scoring (rejected: ignores rules that legitimately change during the week).
+- Consequences: Seeds are still stored per round and replayable. A week's seed is set by its weekly round.
+
 ## ADR-011 — Better Auth owns `users`; SSO users join an org by email domain
 - Date: 2026-11-22
 - Status: Accepted

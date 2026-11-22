@@ -3,6 +3,10 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 03, 07, 12 — ADR-012 one tie-break seed per week; request lock while in review; same-day offer rules (accept/decline/expire, immediate re-offer) — decided while building M4
+- 2026-11-22 — 08 — `offers.waitlist_id` → `offers.request_id` (migrations 0002–0003) — offers are history; deleting a waitlist row broke the foreign key
+- 2026-11-22 — 06, 09, 10 — Round job order and cadence; offers, rounds and collation endpoints; collation/rounds screens and offer card — built in M4
+- 2026-11-22 — 04, 13 — FR-5, FR-6, FR-7 Done; FR-20 In progress (live push in M5); M4 Done; approval reminders moved to M7
 - 2026-11-22 — 13 — Employee profile (vehicles, optional fields, consent, export/delete) added to M7 — it was in the screens list but no milestone; employees need it to register an EV
 - 2026-11-22 — 03, 08 — Which-round-decides rule, same-day end time (default 17:00), request edit cutoff, all-or-nothing requests, pattern feed week, "withdraw = skip" for pattern requests — decided while building M3
 - 2026-11-22 — 09, 10 — Request/calendar/recurring endpoints and employee screens (/app, /app/book, /app/recurring) — built in M3

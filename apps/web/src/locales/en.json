@@ -29,7 +29,9 @@
   "admin": {
     "overview": "Overview",
     "site": "Site setup",
-    "policy": "Policy"
+    "policy": "Policy",
+    "collation": "Collation",
+    "rounds": "Rounds"
   },
   "home": {
     "employeeTitle": "My parking",
@@ -270,6 +272,47 @@
     "skipped": "Skipped",
     "skip": "Skip",
     "unskip": "Undo skip",
-    "stopPattern": "Stop this pattern"
+    "stopPattern": "Stop this pattern",
+    "awaitingResults": "Round has run — results by {{time}} after admin review",
+    "awaitingResultsSoon": "Round has run — results soon",
+    "resultsDelayed": "Results delayed: awaiting admin review",
+    "position": "Waitlist position {{n}}",
+    "offerTitle": "Bay offer",
+    "offerBody": "A bay is free for {{day}}: {{bay}}",
+    "offerLeft": "Accept within {{time}}",
+    "offerExpired": "This offer has expired.",
+    "accept": "Accept",
+    "decline": "Decline"
+  },
+  "rounds": {
+    "collationTitle": "Collation",
+    "collationHint": "Requests against supply for the next working days. Ratios above 1× mean more requests than allocatable bays.",
+    "ratioHint": "Allocatable = supply − bays held back for the same-day pool.",
+    "day": "Day",
+    "requests": "Requests",
+    "supply": "Supply",
+    "held": "Same-day pool",
+    "ratio": "Demand",
+    "confirmed": "Confirmed",
+    "waitlisted": "Waitlisted",
+    "forecast": "Still to come",
+    "roundsCol": "Rounds",
+    "title": "Rounds",
+    "hint": "Weekly rounds run Friday, daily rounds the evening before, same-day rounds every 30 minutes on the day.",
+    "recent": "Recent rounds",
+    "reviewSoon": "Reviewing and approving rounds arrives next (M5). Until then, pending rounds publish at 07:00 on their first day.",
+    "none": "No rounds have run yet.",
+    "type": "Round",
+    "days": "Days",
+    "ran": "Ran",
+    "statusCol": "Status",
+    "pending": "Awaiting review",
+    "delayed": "Past deadline",
+    "published": "Published",
+    "mode": {
+      "auto_same_day": "automatic",
+      "auto_timeout": "day-start safety valve",
+      "auto_stage3": "AI stage 3"
+    }
   }
 }

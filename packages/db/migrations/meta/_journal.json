@@ -15,6 +15,20 @@
       "when": 1795324869383,
       "tag": "0001_audit_log_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795329512996,
+      "tag": "0002_offers_drop_waitlist_ref",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795329513536,
+      "tag": "0003_offers_reference_requests",
+      "breakpoints": true
     }
   ]
 }

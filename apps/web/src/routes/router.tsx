@@ -7,6 +7,8 @@ import { EmployeeHomePage } from '@/features/booking/home-page';
 import { RecurringPage } from '@/features/booking/recurring-page';
 import { CurrentPolicyPage } from '@/features/policy/current-policy-page';
 import { PolicyPage } from '@/features/policy/policy-page';
+import { CollationPage } from '@/features/rounds/collation-page';
+import { RoundsPage } from '@/features/rounds/rounds-page';
 import { SitePage } from '@/features/site/site-page';
 import { useMe } from '@/lib/auth';
 import { LoginPage } from './login';
@@ -45,6 +47,8 @@ export const router = createBrowserRouter([
               { index: true, element: <AdminHome /> },
               { path: 'site', element: <SitePage /> },
               { path: 'policy', element: <PolicyPage /> },
+              { path: 'collation', element: <CollationPage /> },
+              { path: 'rounds', element: <RoundsPage /> },
             ],
           },
         ],

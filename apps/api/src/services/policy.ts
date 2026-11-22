@@ -338,3 +338,16 @@ export function getCurrentPolicy(db: Db, siteId: string, now: Date): CurrentPoli
     })),
   };
 }
+
+/**
+ * The published version in force for the week starting `week` (a Monday), with its
+ * rules. Rounds use this, so a policy published mid-week never changes a round for
+ * the current week (non-negotiable #8).
+ */
+export function policyVersionForWeek(db: Db, siteId: string, week: string) {
+  const policy = sitePolicy(db, siteId);
+  const rows = versionRows(db, policy.id);
+  const active = rows.find((r) => statuses(rows, week).get(r.id) === 'active');
+  if (!active) throw notFound(`Policy in force for the week of ${week}`);
+  return { version: active, rules: rulesOf(db, active.id) };
+}

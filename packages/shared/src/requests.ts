@@ -29,6 +29,12 @@ export const requestSchema = z.object({
   decidedBy: decidedBySchema.nullable(),
   /** Free to change or withdraw until its deciding round runs (FR-4). */
   editable: z.boolean(),
+  /** Its round has run and awaits admin approval; `delayed` once past the deadline (ADR-008). */
+  awaitingResults: z.object({ resultsBy: isoDateTime.nullable(), delayed: z.boolean() }).nullable(),
+  /** An open same-day offer to accept before it expires (FR-20). */
+  offer: z.object({ id: z.string(), bayCode: z.string(), expiresAt: isoDateTime }).nullable(),
+  /** 1-based place in the waitlist for its date and bay type. */
+  waitlistPosition: z.number().int().nullable(),
 });
 export type EmployeeRequest = z.infer<typeof requestSchema>;
 export const requestsResponseSchema = z.object({ items: z.array(requestSchema) });
@@ -115,3 +121,5 @@ export const recurringPatternUpdateSchema = recurringPatternCreateSchema
   .extend({ active: z.boolean().optional() });
 export const skipBodySchema = z.object({ date: isoDateSchema });
 export const skipParamsSchema = z.object({ id: z.string().min(1), date: isoDateSchema });
+
+export const offerAcceptResponseSchema = z.object({ bookingId: z.string() });
