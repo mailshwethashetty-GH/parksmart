@@ -38,7 +38,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-14 | Deterministic scoring and assignment engine | Same requests and policy always give the same result; never confirms more bookings than bays; ties settled by a logged random draw; weekly rounds allocate the most oversubscribed day first; bay-type fallback as in `03-allocation-model.md` | P0 | Planned |
+| FR-14 | Deterministic scoring and assignment engine | Same requests and policy always give the same result; never confirms more bookings than bays; ties settled by a logged random draw; weekly rounds allocate the most oversubscribed day first; bay-type fallback as in `03-allocation-model.md` | P0 | In progress |
 | FR-15 | Plain-language reason for every decision | Employee sees a reason under 40 words; admin sees the full score breakdown by rule | P0 | Planned |
 | FR-16 | Stage 1 review, override and audit log | Admin (or a backup admin) approves each weekly and daily round before publish; same-day rounds auto-publish and are audited; reminders before the approval deadline and a "results delayed" notice after it; overrides need a reason; every change logged and exportable | P0 | Planned |
 | FR-20 | Waitlist with live position and auto-promotion | Promoted employee has a configurable window (default 10 min) to accept | P0 | Planned |

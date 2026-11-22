@@ -104,18 +104,36 @@ score = Σ (w_i × f_i)     where Σ w_i = 100%,  0 ≤ f_i ≤ 1
 
 ## 3. Engine processing order (implementation contract)
 
-`packages/engine` exposes one pure function, roughly:
+`packages/engine` exposes one pure function (full types in `packages/engine/src/types.ts`):
 
 ```ts
 allocate(input: {
-  round: Round; requests: Request[]; bays: Bay[];
-  policy: PolicyVersion; history: AllocationHistory; seed: string;
+  round: { type; dates };            // weekly: several dates; daily/same-day: one
+  requests: EngineRequest[];         // NO submission time: it is not an input at all
+  bays: EngineBay[];                 // active bays, with a stable `code`
+  unavailable: { bayId; date }[];    // event blocks + bays already held by bookings
+  people: EnginePerson[];            // EV flag, accessible approval end date, optional profile fields
+  history: EngineHistory[];          // peak wins (lookback + this week), bookings, no-shows
+  policy: EnginePolicy;              // rules, factor cap, pool %, EV overflow, weeks of data
+  seed: string;
 }): {
-  assignments: Assignment[];   // requestId → bayId
-  waitlist: WaitlistEntry[];   // ordered
-  decisions: Decision[];       // score breakdown per request
+  assignments: Assignment[];         // requestId → bayId (+ fallbackUsed)
+  waitlist: WaitlistEntry[];         // position per (date, bay type); capped entries last
+  decisions: Decision[];             // one per request: outcome, reasonCode, score, rank, breakdown
+  dayOrder: string[];                // order the days were allocated in
+  heldBack: { date; bayIds }[];      // same-day pool bays (weekly/daily only)
 }
 ```
+
+Implementation details fixed by the engine (and its tests):
+
+- **Outcomes:** `confirmed`, `waitlisted`, or `ineligible` (failed an eligibility rule: `not_ev`, `accessible_not_approved`). Ineligible requests are not scored. Each decision carries a `reasonCode` for the plain-language reason (FR-15).
+- **Tie-break:** each request's draw depends only on `(seed, date, requestId)` (FNV-1a hash → `pure-rand` xoroshiro128+), so results never depend on input order and a logged seed replays a round exactly. Scores are compared at 1e-9 so float noise never breaks a real tie.
+- **Same-day pool:** in weekly and daily rounds, `floor(pool% × bays of that type)` **car** and **EV** bays are held back per date, taken from the free bays with the highest codes. Accessible bays are never pooled; they stay reserved.
+- **Accessible bays** go only to requests whose approval is valid on the date. Unused accessible bays stay empty in every round.
+- **Capped requests** get no bay in weekly or daily rounds. In same-day rounds they may take leftovers after every uncapped request.
+- **Same-day EV overflow** (when on) runs after fallback: unassigned car requests may take free EV bays (`allocated_overflow`).
+- The engine rejects invalid input: policy guardrail errors (`POLICY_*`), two requests from one employee for one date, or a request outside the round's dates.
 
 Order of operations:
 
@@ -143,6 +161,7 @@ Invariants (covered by property tests):
 - `confirmed(bayType, date) ≤ bays(bayType, date)`
 - Same input + seed → identical output.
 - Changing only submission timestamps never changes the output.
+- Shuffling the order of any input list never changes the output.
 - Weights total 100% and no factor exceeds the cap.
 - No employee wins more days than a cap allows in a round (a capped request is only promoted later when no uncapped request is waiting).
 - A fallback assignment never displaces a first-choice request for that bay type.

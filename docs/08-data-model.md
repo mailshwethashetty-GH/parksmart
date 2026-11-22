@@ -66,7 +66,7 @@
 | `recurring_patterns` | id, user_id, weekdays_json, bay_type, arrival_window, active | |
 | `recurring_skips` | id, pattern_id, date | |
 | `rounds` | id, site_id, round_type, target_date_from, target_date_to, status, seed, policy_version_id, run_at, approval_deadline?, publish_mode?, approved_by?, approved_at?, published_at? | `approval_deadline` null for same-day rounds |
-| `allocations` | id, round_id, request_id, bay_id?, outcome (`confirmed`/`waitlisted`), rank, score, score_breakdown_json, fallback_used, cap_reached, reason_text | one per request per round |
+| `allocations` | id, round_id, request_id, bay_id?, outcome (`confirmed`/`waitlisted`/`ineligible`), rank, score, score_breakdown_json, fallback_used, cap_reached, reason_text | one per request per round |
 | `bookings` | id, site_id, user_id, bay_id, date, status, allocation_id, late_extension_used | **`UNIQUE(bay_id, date)` WHERE status IN (`confirmed`,`checked_in`)**; also `UNIQUE(user_id, date)` on the same statuses (one bay per employee per day). Status meanings: `cancelled` = employee cancelled before check-in; `auto_released` = no check-in within grace; `released` = checked in, then left or the day ended |
 | `waitlist` | id, site_id, date, bay_type, request_id, position, cap_reached | `request_id` unique; capped entries sit behind uncapped ones (ADR-009) |
 | `offers` | id, waitlist_id, bay_id, expires_at, status (`open`,`accepted`,`declined`,`expired`) | |

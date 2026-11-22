@@ -57,7 +57,7 @@ export type CheckinMethod = (typeof CHECKIN_METHODS)[number];
 export const AI_STAGES = [1, 2, 3] as const;
 export type AiStage = (typeof AI_STAGES)[number];
 
-export const ALLOCATION_OUTCOMES = ['confirmed', 'waitlisted'] as const;
+export const ALLOCATION_OUTCOMES = ['confirmed', 'waitlisted', 'ineligible'] as const;
 export type AllocationOutcome = (typeof ALLOCATION_OUTCOMES)[number];
 
 export const OFFER_STATUSES = ['open', 'accepted', 'declined', 'expired'] as const;

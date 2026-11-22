@@ -63,7 +63,7 @@
 ## Allocation engine — `packages/engine`
 
 - Pure TypeScript. No DB, network, clock or `Math.random`.
-- Seeded PRNG: `pure-rand` (seed stored with the round).
+- Seeded PRNG: `pure-rand` v8 (xoroshiro128+, one draw per request from a hash of seed, date and request id; seed stored with the round).
 - Tests: Vitest + **fast-check** property tests.
 - P1 best-fit by zone: `javascript-lp-solver` (inside the engine package).
 

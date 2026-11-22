@@ -3,6 +3,8 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 03, 08, 06 — Engine contract made concrete: `ineligible` outcome and reason codes, per-request seeded tie-break, same-day pool selection (car/EV, highest codes), accessible bays never pooled, capped requests only get same-day leftovers, input-order invariance — fixed while building M1
+- 2026-11-22 — 04, 13 — FR-14 In progress; M1 Done — engine built and tested
 - 2026-11-22 — 08 — M0 schema: epoch-ms timestamps; `users.site_id`, `orgs.email_domain`; Better Auth tables; one-bay-per-user-per-day index; audit DELETE allowed only after 12 months; smaller column additions — matches the Drizzle schema built in M0
 - 2026-11-22 — 09 — Added `/csrf-token` and dev-only `/auth/dev/*` endpoints; CSRF header name — built in M0
 - 2026-11-22 — 06, 07 — Pinned TS 5.9, pnpm 12, Vite 8; auth, security and build details; lint-enforced layering — M0 implementation choices
