@@ -1,6 +1,10 @@
 import { homePathForRole } from '@parksmart/shared';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from '@/components/app-shell';
+import { AdminLayout } from '@/features/admin/admin-layout';
+import { CurrentPolicyPage } from '@/features/policy/current-policy-page';
+import { PolicyPage } from '@/features/policy/policy-page';
+import { SitePage } from '@/features/site/site-page';
 import { useMe } from '@/lib/auth';
 import { LoginPage } from './login';
 import { AdminHome, EmployeeHome, GateHome } from './placeholders';
@@ -21,12 +25,24 @@ export const router = createBrowserRouter([
       {
         path: '/app',
         element: <RequireRole group="/app" />,
-        children: [{ index: true, element: <EmployeeHome /> }],
+        children: [
+          { index: true, element: <EmployeeHome /> },
+          { path: 'policy', element: <CurrentPolicyPage /> },
+        ],
       },
       {
         path: '/admin',
         element: <RequireRole group="/admin" />,
-        children: [{ index: true, element: <AdminHome /> }],
+        children: [
+          {
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <AdminHome /> },
+              { path: 'site', element: <SitePage /> },
+              { path: 'policy', element: <PolicyPage /> },
+            ],
+          },
+        ],
       },
       {
         path: '/gate',

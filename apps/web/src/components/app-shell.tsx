@@ -12,7 +12,13 @@ export function AppShell() {
   const role = me.data?.role;
 
   const links = [
-    { to: '/app', label: t('nav.employee'), show: role === 'employee' || role === 'admin' },
+    {
+      to: '/app',
+      label: t('nav.employee'),
+      show: role === 'employee' || role === 'admin',
+      end: true,
+    },
+    { to: '/app/policy', label: t('nav.policy'), show: role === 'employee' || role === 'admin' },
     { to: '/admin', label: t('nav.admin'), show: role === 'admin' },
     { to: '/gate', label: t('nav.gate'), show: role === 'security' || role === 'admin' },
   ].filter((l) => l.show);
@@ -27,6 +33,7 @@ export function AppShell() {
               <NavLink
                 key={l.to}
                 to={l.to}
+                end={l.end}
                 className={({ isActive }) =>
                   cn(
                     'rounded-md px-3 py-1.5 text-sm',

@@ -93,6 +93,10 @@ score = Σ (w_i × f_i)     where Σ w_i = 100%,  0 ≤ f_i ≤ 1
 3. **Gaming risk**: self-declared inputs are flagged, and the admin sets a spot-check rate.
 4. **Impact simulation** (P1): replay the last 4 weeks of requests with the new weights. Show winners, the fairness spread and each segment's share (EV, two-wheeler, new joiners).
 
+As built (M2), publishing is **blocked** when an enabled rule with weight > 0 has coverage below 90% and no neutral value, uses data not collected yet (carpool, P2), is easy to game (business need) without a spot-check rate, or uses sensitive data without a stated purpose. Lower coverage with a neutral value, and self-declared inputs, show as warnings. Coverage is measured over active employees of the site. Each rule's data source, privacy class and gaming risk live in `packages/shared/src/rules.ts`.
+
+**Versions:** one policy per site. A draft copies the latest version; only one draft at a time. Publishing needs a reason, locks the version and sets `effective_from_week` to the target week of the next weekly round still to run. If two versions are published for the same week, the higher version number wins. Stored rules are validated strictly when written and loosely when read, so rules saved under an older schema still load and show their problems.
+
 ### Guardrails
 
 - Weights must total 100%.

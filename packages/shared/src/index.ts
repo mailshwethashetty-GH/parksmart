@@ -4,3 +4,7 @@ export * from './settings';
 export * from './catalogue';
 export * from './api';
 export * from './routing';
+export * from './rules';
+export * from './schedule';
+export * from './policy-text';
+export * from './admin';

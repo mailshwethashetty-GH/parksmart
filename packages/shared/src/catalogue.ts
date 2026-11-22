@@ -36,7 +36,10 @@ export const DEFAULT_RULE_CATALOGUE: readonly CatalogueRule[] = [
     label: 'Accessible bays reserved for approved users',
     weight: null,
     enabled: true,
-    config: { approvalKind: 'accessible' },
+    config: {
+      approvalKind: 'accessible',
+      purpose: 'Reserve accessible bays for employees with an approved need.',
+    },
   },
   {
     key: 'ev_match',

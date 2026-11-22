@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@hookform/resolvers": "^7.0.8",
     "@parksmart/shared": "workspace:*",
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.108.2",
@@ -18,6 +19,7 @@
     "i18next": "^25.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-hook-form": "^7.92.0",
     "react-i18next": "^16.0.0",
     "react-router": "^7.18.6",
     "tailwind-merge": "^3.3.1",

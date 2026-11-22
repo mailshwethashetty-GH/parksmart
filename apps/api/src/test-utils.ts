@@ -12,11 +12,14 @@ export const TEST_ENV = {
   QR_SIGNING_SECRET: 'test-qr-secret-0123456789abcdefghijklmn',
 } as const;
 
-export async function createTestApp(envOverrides: Record<string, string> = {}) {
+export async function createTestApp(
+  envOverrides: Record<string, string> = {},
+  opts: { clock?: () => Date } = {},
+) {
   const db: Db = createTestDb();
   seed(db, new Date('2026-11-22T04:00:00Z'));
   const env = loadEnv({ ...TEST_ENV, ...envOverrides });
-  const app = await buildApp({ env, db, logger: false });
+  const app = await buildApp({ env, db, logger: false, clock: opts.clock });
   return { app, db, env };
 }
 
@@ -56,4 +59,32 @@ export async function csrf(app: App, cookie: string): Promise<{ token: string; c
     headers: { cookie },
   });
   return { token: res.json().token, cookie: cookieHeader(res.headers['set-cookie'], cookie) };
+}
+
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+/** Signed-in client for tests: sends the session cookie, and the CSRF token on mutations. */
+export async function clientFor(app: App, email: string) {
+  const session = await devSignIn(app, email);
+  const { token, cookie } = await csrf(app, session);
+  const call = async (method: Method, url: string, payload?: unknown) => {
+    const res = await app.inject({
+      method,
+      url: `${API_BASE}${url}`,
+      headers: {
+        cookie,
+        ...(method === 'GET' ? {} : { 'x-csrf-token': token }),
+        ...(payload === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      payload: payload === undefined ? undefined : JSON.stringify(payload),
+    });
+    return { status: res.statusCode, body: res.body ? res.json() : null };
+  };
+  return {
+    get: (url: string) => call('GET', url),
+    post: (url: string, payload: unknown = {}) => call('POST', url, payload),
+    put: (url: string, payload: unknown) => call('PUT', url, payload),
+    patch: (url: string, payload: unknown) => call('PATCH', url, payload),
+    delete: (url: string) => call('DELETE', url),
+  };
 }

@@ -24,7 +24,7 @@
 | Routing | React Router v7 (route groups `/app`, `/admin`, `/gate`) |
 | Data from the server | TanStack Query |
 | UI | Tailwind CSS v4 + shadcn/ui (Radix; `clsx`, `tailwind-merge`, `class-variance-authority`) |
-| Forms / validation | React Hook Form + Zod (schemas from `packages/shared`) |
+| Forms / validation | React Hook Form + `@hookform/resolvers` (Zod 4) with schemas from `packages/shared` |
 | Dates | `react-day-picker`, `date-fns`, `date-fns-tz` |
 | QR | `qrcode.react` (display), `@zxing/browser` (gate scanner) |
 | Charts | Recharts |

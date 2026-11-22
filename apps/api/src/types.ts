@@ -16,6 +16,8 @@ declare module 'fastify' {
     db: Db;
     env: Env;
     auth: Auth;
+    /** Current time. Injected so tests can control it; services never call the clock. */
+    clock: () => Date;
   }
   interface FastifyRequest {
     actor: Actor | null;

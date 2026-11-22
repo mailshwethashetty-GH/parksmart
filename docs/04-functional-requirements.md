@@ -27,12 +27,12 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-8 | Rule builder with five types: eligibility, reservation, weighted factor, cap, tie-breaker | Add, edit, disable, reorder; weights total 100%; per-factor cap (default 50%) enforced | P0 | Planned |
-| FR-9 | Starting rule catalogue with default weights | Preloaded as in `03-allocation-model.md`; admin can change any default before go-live | P0 | Planned |
+| FR-8 | Rule builder with five types: eligibility, reservation, weighted factor, cap, tie-breaker | Add, edit, disable, reorder; weights total 100%; per-factor cap (default 50%) enforced | P0 | Done |
+| FR-9 | Starting rule catalogue with default weights | Preloaded as in `03-allocation-model.md`; admin can change any default before go-live | P0 | Done |
 | FR-10 | Custom factors from profile fields or admin tags | Admin maps each value to 0–1; custom factors pass the same feasibility checks | P1 | Planned |
-| FR-11 | Feasibility checks before a rule is published | **P0:** coverage, privacy class, gaming-risk flag; publish blocked below 90% coverage without a neutral default. **P1:** 4-week impact simulation once 2+ weeks of data exist | P0 / P1 | Planned |
-| FR-12 | Policy versions and publication | Each version has an effective week (first Monday it applies) and starts at the next weekly round; plain-language policy for employees; past versions kept | P0 | Planned |
-| FR-13 | Accessible and medical approvals | Admin approves with an expiry date; only the flag is stored, never the medical detail | P0 | Planned |
+| FR-11 | Feasibility checks before a rule is published | **P0:** coverage, privacy class, gaming-risk flag; publish blocked below 90% coverage without a neutral default. **P1:** 4-week impact simulation once 2+ weeks of data exist | P0 / P1 | In progress |
+| FR-12 | Policy versions and publication | Each version has an effective week (first Monday it applies) and starts at the next weekly round; plain-language policy for employees; past versions kept | P0 | Done |
+| FR-13 | Accessible and medical approvals | Admin approves with an expiry date; only the flag is stored, never the medical detail | P0 | Done |
 
 ## Allocation
 
@@ -75,7 +75,7 @@ When adding a feature, use the next free ID (`FR-34`, `FR-35`, …). Never renum
 
 | ID | Requirement | Acceptance criteria | Priority | Status |
 | --- | --- | --- | --- | --- |
-| FR-26 | Site, zone and bay setup; block bays for events or documented reserved bays | Bulk block by date with a reason shown to employees; multi-site at P2 | P0 | Planned |
+| FR-26 | Site, zone and bay setup; block bays for events or documented reserved bays | Bulk block by date with a reason shown to employees; multi-site at P2 | P0 | In progress |
 | FR-27 | Demand forecast by bay type for tomorrow and next week | Shown with a range; feeds the collation view and same-day pool sizing | P1 | Planned |
 | FR-28 | Reports | Utilisation, no-shows, fairness spread, disputes, override rate; one-click monthly export (P0); AI-written weekly summary (P1) | P0 / P1 | Planned |
 

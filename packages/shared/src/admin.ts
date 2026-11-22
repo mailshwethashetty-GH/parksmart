@@ -1,0 +1,238 @@
+/**
+ * Admin (M2) request/response schemas: site setup (FR-26), approvals (FR-13),
+ * policy versions, rules and feasibility (FR-8, FR-9, FR-11, FR-12).
+ */
+import { z } from 'zod';
+import { RULE_KEYS } from './catalogue';
+import { BAY_TYPES, ROLES, ZONE_KINDS } from './constants';
+import { GAMING_RISKS, PRIVACY_CLASSES, rulesInputSchema, storedRuleSchema } from './rules';
+import { siteSettingsSchema } from './settings';
+import { isoDateSchema } from './time';
+
+const id = z.string().min(1);
+const isoDateTime = z.string();
+const listOf = <T extends z.ZodType>(item: T) => z.object({ items: z.array(item) });
+export const idParamsSchema = z.object({ id });
+
+// --- site ------------------------------------------------------------------
+export const siteResponseSchema = z.object({
+  id,
+  name: z.string(),
+  timezone: z.string(),
+  aiStage: z.number().int(),
+  settings: siteSettingsSchema,
+  nextWeeklyRound: z.object({ runAt: isoDateTime, targetWeek: isoDateSchema }),
+});
+export type SiteResponse = z.infer<typeof siteResponseSchema>;
+export const siteSettingsInputSchema = siteSettingsSchema;
+
+// --- zones -----------------------------------------------------------------
+export const zoneSchema = z.object({
+  id,
+  name: z.string(),
+  kind: z.enum(ZONE_KINDS),
+  capacity: z.number().int().nullable(),
+  bayCount: z.number().int(),
+});
+export type Zone = z.infer<typeof zoneSchema>;
+export const zonesResponseSchema = listOf(zoneSchema);
+export const zoneCreateSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  kind: z.enum(ZONE_KINDS),
+  capacity: z.number().int().min(1).max(5000).nullable().default(null),
+});
+export const zoneUpdateSchema = zoneCreateSchema.partial();
+
+// --- bays ------------------------------------------------------------------
+const bayCode = z
+  .string()
+  .trim()
+  .min(1)
+  .max(20)
+  .regex(/^[A-Za-z0-9-]+$/, 'Letters, numbers and dashes only');
+
+export const baySchema = z.object({
+  id,
+  zoneId: id,
+  code: z.string(),
+  bayType: z.enum(BAY_TYPES),
+  hasCharger: z.boolean(),
+  active: z.boolean(),
+});
+export type Bay = z.infer<typeof baySchema>;
+export const baysResponseSchema = listOf(baySchema);
+export const baysQuerySchema = z.object({ zoneId: id.optional() });
+export const bayCreateSchema = z.object({
+  zoneId: id,
+  code: bayCode,
+  bayType: z.enum(BAY_TYPES),
+  hasCharger: z.boolean().optional(),
+});
+export const bayBulkCreateSchema = z.object({
+  zoneId: id,
+  prefix: z
+    .string()
+    .trim()
+    .min(1)
+    .max(12)
+    .regex(/^[A-Za-z0-9-]+$/, 'Letters, numbers and dashes only'),
+  start: z.number().int().min(0).max(9999).default(1),
+  count: z.number().int().min(1).max(500),
+  bayType: z.enum(BAY_TYPES),
+  hasCharger: z.boolean().optional(),
+});
+export const bayUpdateSchema = z
+  .object({
+    zoneId: id,
+    bayType: z.enum(BAY_TYPES),
+    hasCharger: z.boolean(),
+    active: z.boolean(),
+  })
+  .partial();
+
+// --- bay blocks ------------------------------------------------------------
+export const bayBlockSchema = z.object({
+  id,
+  bayId: z.string().nullable(),
+  bayCode: z.string().nullable(),
+  zoneId: z.string().nullable(),
+  zoneName: z.string().nullable(),
+  dateFrom: isoDateSchema,
+  dateTo: isoDateSchema,
+  reason: z.string(),
+  createdAt: isoDateTime,
+});
+export type BayBlock = z.infer<typeof bayBlockSchema>;
+export const bayBlocksResponseSchema = listOf(bayBlockSchema);
+export const bayBlocksQuerySchema = z.object({
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+});
+export const bayBlockCreateSchema = z
+  .object({
+    bayIds: z.array(id).min(1).max(500).optional(),
+    zoneId: id.optional(),
+    dateFrom: isoDateSchema,
+    dateTo: isoDateSchema,
+    /** Shown to employees. */
+    reason: z.string().trim().min(3).max(200),
+  })
+  .refine((b) => (b.bayIds ? 1 : 0) + (b.zoneId ? 1 : 0) === 1, {
+    message: 'Block either specific bays or a whole zone.',
+    path: ['bayIds'],
+  })
+  .refine((b) => b.dateTo >= b.dateFrom, {
+    message: 'End date must be on or after the start date.',
+    path: ['dateTo'],
+  });
+
+// --- users and approvals ---------------------------------------------------
+export const userSummarySchema = z.object({
+  id,
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(ROLES),
+});
+export const usersResponseSchema = listOf(userSummarySchema);
+export const usersQuerySchema = z.object({
+  q: z.string().trim().max(100).optional(),
+  role: z.enum(ROLES).optional(),
+});
+
+export const approvalSchema = z.object({
+  id,
+  userId: id,
+  userName: z.string(),
+  kind: z.literal('accessible'),
+  /** Last site-local day the approval is valid. */
+  expiresOn: isoDateSchema,
+  approvedBy: id,
+  createdAt: isoDateTime,
+  revokedAt: isoDateTime.nullable(),
+  active: z.boolean(),
+});
+export type Approval = z.infer<typeof approvalSchema>;
+export const approvalsResponseSchema = listOf(approvalSchema);
+export const approvalCreateSchema = z.object({ userId: id, expiresOn: isoDateSchema });
+
+// --- policy ----------------------------------------------------------------
+export const POLICY_VERSION_STATUSES = ['draft', 'scheduled', 'active', 'superseded'] as const;
+export type PolicyVersionStatus = (typeof POLICY_VERSION_STATUSES)[number];
+
+export const policyRuleSchema = storedRuleSchema;
+export const policyIssueSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  ruleKey: z.string().optional(),
+});
+export type PolicyIssue = z.infer<typeof policyIssueSchema>;
+
+export const policyVersionSummarySchema = z.object({
+  id,
+  version: z.number().int(),
+  status: z.enum(POLICY_VERSION_STATUSES),
+  effectiveFromWeek: isoDateSchema.nullable(),
+  publishedAt: isoDateTime.nullable(),
+  publishedBy: z.string().nullable(),
+});
+export type PolicyVersionSummary = z.infer<typeof policyVersionSummarySchema>;
+export const policyResponseSchema = z.object({
+  id,
+  name: z.string(),
+  versions: z.array(policyVersionSummarySchema),
+  maxFactorWeightPercent: z.number(),
+  nextWeeklyRound: z.object({ runAt: isoDateTime, targetWeek: isoDateSchema }),
+});
+
+export const policyVersionDetailSchema = policyVersionSummarySchema.extend({
+  rules: z.array(policyRuleSchema),
+  plainLanguage: z.string(),
+  /** Guardrail problems (weights, caps). Publishing is blocked while any exist. */
+  issues: z.array(policyIssueSchema),
+});
+export type PolicyVersionDetail = z.infer<typeof policyVersionDetailSchema>;
+export const versionParamsSchema = z.object({ version: z.coerce.number().int().min(1) });
+export const rulesUpdateSchema = z.object({ rules: rulesInputSchema });
+export const publishSchema = z.object({ reason: z.string().trim().min(3).max(500) });
+
+export const feasibilityIssueSchema = z.object({
+  severity: z.enum(['block', 'warn']),
+  code: z.string(),
+  message: z.string(),
+});
+export const ruleFeasibilitySchema = z.object({
+  key: z.enum(RULE_KEYS),
+  /** Share of active employees with the data (0–1). Null when not applicable. */
+  coverage: z.number().min(0).max(1).nullable(),
+  employeesWithData: z.number().int().nullable(),
+  activeEmployees: z.number().int(),
+  dataSource: z.string(),
+  privacyClass: z.enum(PRIVACY_CLASSES),
+  gamingRisk: z.enum(GAMING_RISKS),
+  issues: z.array(feasibilityIssueSchema),
+});
+export type RuleFeasibility = z.infer<typeof ruleFeasibilitySchema>;
+export const feasibilityRequestSchema = z.object({ rules: rulesInputSchema });
+export const feasibilityResponseSchema = z.object({
+  items: z.array(ruleFeasibilitySchema),
+  blocking: z.boolean(),
+});
+export type FeasibilityResponse = z.infer<typeof feasibilityResponseSchema>;
+
+// --- employee: current policy ---------------------------------------------
+export const currentPolicyResponseSchema = z.object({
+  version: z.number().int(),
+  effectiveFromWeek: isoDateSchema,
+  plainLanguage: z.string(),
+  rules: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      ruleType: z.string(),
+      weight: z.number().nullable(),
+    }),
+  ),
+});
+export type CurrentPolicyResponse = z.infer<typeof currentPolicyResponseSchema>;
+
+export const okResponseSchema = z.object({ ok: z.literal(true) });

@@ -3,6 +3,9 @@
 One line per meaningful doc change, newest at the top.
 Format: `YYYY-MM-DD — file(s) — what changed — why`
 
+- 2026-11-22 — 09 — Admin endpoint map rewritten for M2 (one policy per site: `/admin/policy/...`; site settings PUT; bulk bays; approvals revoke; users lookup) — matches built routes
+- 2026-11-22 — 03 — Feasibility blocking rules, version rules (one draft, same-week precedence), loose-read/strict-write for stored rules — decided while building M2
+- 2026-11-22 — 04, 10, 06, 13 — FR-8/9/12/13 Done, FR-11 and FR-26 In progress; Site setup and Policy screens described; React Hook Form resolver; M2 Done — M2 complete
 - 2026-11-22 — 03, 08, 06 — Engine contract made concrete: `ineligible` outcome and reason codes, per-request seeded tie-break, same-day pool selection (car/EV, highest codes), accessible bays never pooled, capped requests only get same-day leftovers, input-order invariance — fixed while building M1
 - 2026-11-22 — 04, 13 — FR-14 In progress; M1 Done — engine built and tested
 - 2026-11-22 — 08 — M0 schema: epoch-ms timestamps; `users.site_id`, `orgs.email_domain`; Better Auth tables; one-bay-per-user-per-day index; audit DELETE allowed only after 12 months; smaller column additions — matches the Drizzle schema built in M0

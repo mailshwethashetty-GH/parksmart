@@ -60,7 +60,7 @@
 | GET | `/waitlist/me` · SSE `/stream/me` | employee | FR-20 |
 | POST | `/offers/:id/accept` · `/offers/:id/decline` | employee | FR-20 |
 | POST | `/appeals` | employee | FR-31 |
-| GET | `/policy/current` | employee | FR-12 |
+| GET | `/policy/current` | any role | FR-12 |
 
 ### Check-in (security)
 
@@ -74,15 +74,19 @@
 
 | Method | Path | Role | FR |
 | --- | --- | --- | --- |
-| CRUD | `/admin/sites/:id`, `/admin/zones`, `/admin/bays` | admin | FR-26 |
-| CRUD | `/admin/bay-blocks` | admin | FR-26 |
+| GET · PUT | `/admin/site` · `/admin/site/settings` (whole settings object) | admin | FR-26 |
+| GET/POST · PATCH | `/admin/zones` · `/admin/zones/:id` | admin | FR-26 |
+| GET/POST · POST · PATCH | `/admin/bays?zoneId` · `/admin/bays/bulk` · `/admin/bays/:id` (deactivate, never delete) | admin | FR-26 |
+| GET/POST · DELETE | `/admin/bay-blocks?from&to` · `/admin/bay-blocks/:id` (soft delete) | admin | FR-26 |
+| GET | `/admin/users?q&role` | admin | pickers (approvals, backup admins) |
 | GET | `/admin/collation?from&to` | admin | FR-7 |
-| GET/POST | `/admin/policies/:id/versions` | admin | FR-8, FR-12 |
-| CRUD | `/admin/policies/:id/versions/:v/rules` | admin | FR-8, FR-10 |
-| POST | `/admin/rules/feasibility` | admin | FR-11 |
-| POST | `/admin/policies/:id/versions/:v/simulate` | admin | FR-11 (P1) |
-| POST | `/admin/policies/:id/versions/:v/publish` | admin | FR-12 |
-| CRUD | `/admin/approvals` | admin | FR-13 |
+| GET | `/admin/policy` (the site's one policy + version statuses) | admin | FR-12 |
+| GET · POST | `/admin/policy/versions/:v` · `/admin/policy/versions` (new draft, copies latest) | admin | FR-8, FR-12 |
+| PUT · DELETE | `/admin/policy/versions/:v/rules` (replace a draft's rules) · `/admin/policy/versions/:v` (discard draft) | admin | FR-8 |
+| POST | `/admin/policy/versions/:v/publish` `{ reason }` | admin | FR-12 |
+| POST | `/admin/rules/feasibility` `{ rules }` (unsaved rules) | admin | FR-11 |
+| POST | `/admin/policy/versions/:v/simulate` | admin | FR-11 (P1) |
+| GET/POST · POST | `/admin/approvals` · `/admin/approvals/:id/revoke` | admin | FR-13 |
 | GET | `/admin/rounds?status` · GET `/admin/rounds/:id` | admin | FR-16 |
 | POST | `/admin/rounds/:id/approve` | admin | FR-16 |
 | POST | `/admin/allocations/:id/override` | admin | FR-16 |

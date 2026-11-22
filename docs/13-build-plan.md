@@ -8,7 +8,7 @@ Order follows the suggested build order in `04-functional-requirements.md`, with
 | --- | --- | --- |
 | M0 | Foundations, SSO + roles (FR-29) | Done (2026-11-22). SSO is wired but untested against a real IdP until D2; that check is in M8 |
 | M1 | Allocation engine (FR-14) | Done (2026-11-22). Engine and property tests complete; wired into rounds in M4 |
-| M2 | Site setup and policy (FR-26, FR-8, FR-9, FR-11 P0, FR-12, FR-13) | Planned |
+| M2 | Site setup and policy (FR-26, FR-8, FR-9, FR-11 P0, FR-12, FR-13) | Done (2026-11-22). Employees see block reasons once booking lands (M3) |
 | M3 | Requests (FR-1, FR-3, FR-4) | Planned |
 | M4 | Rounds and collation (FR-5, FR-6, FR-7) | Planned |
 | M5 | Review, reasons, waitlist (FR-15, FR-16, FR-20) | Planned |

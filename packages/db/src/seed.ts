@@ -7,6 +7,7 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   DEFAULT_RULE_CATALOGUE,
   DEFAULT_TIMEZONE,
+  describePolicy,
   siteLocalDate,
   weekStart,
   type BayType,
@@ -134,9 +135,10 @@ export function seed(db: Db, now = new Date()): { orgId: string; siteId: string 
         effectiveFromWeek: weekStart(siteLocalDate(now, DEFAULT_TIMEZONE)),
         publishedAt: now,
         publishedBy: adminId,
-        plainLanguage: DEFAULT_RULE_CATALOGUE.filter((r) => r.enabled)
-          .map((r) => (r.weight ? `${r.label}: ${r.weight}%` : r.label))
-          .join('\n'),
+        plainLanguage: describePolicy(DEFAULT_RULE_CATALOGUE, {
+          version: 1,
+          effectiveFromWeek: weekStart(siteLocalDate(now, DEFAULT_TIMEZONE)),
+        }),
       })
       .run();
     tx.insert(s.rules)

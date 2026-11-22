@@ -72,8 +72,23 @@ export function createApiClient(fetchImpl: FetchLike = (...args) => fetch(...arg
       request('POST', path, schema, body ?? {}),
     patch: <S extends z.ZodType>(path: string, schema: S, body: unknown) =>
       request('PATCH', path, schema, body),
+    put: <S extends z.ZodType>(path: string, schema: S, body: unknown) =>
+      request('PUT', path, schema, body),
     delete: <S extends z.ZodType>(path: string, schema: S) => request('DELETE', path, schema),
   };
 }
 
 export const api = createApiClient();
+
+/** A readable message for any error thrown by the client. */
+export function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    const issues = (error.details.issues as { message?: string }[] | undefined) ?? [];
+    const extra = issues
+      .map((i) => i.message)
+      .filter((m): m is string => !!m && m !== error.message)
+      .slice(0, 3);
+    return [error.message, ...extra].join(' ');
+  }
+  return error instanceof Error ? error.message : 'Something went wrong.';
+}

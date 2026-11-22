@@ -44,8 +44,8 @@ stateDiagram-v2
 | Profile | `/app/profile` | Employee | Vehicles, optional fields with why-we-ask, consent, data export/delete |
 | Allocation review | `/admin/rounds/:id` | Admin | Proposed allocations, flags, approve all, override with reason |
 | Collation | `/admin/collation` | Admin | Requests vs supply, oversubscription, forecast |
-| Policy | `/admin/policy` | Admin | Rule builder, weights totalling 100%, feasibility results, impact simulation, round schedule, grace window, AI stage, published-policy preview |
-| Site setup | `/admin/site` | Admin | Zones, bays, blocks, approvals, user import |
+| Policy | `/admin/policy` | Admin | Version list with status (draft, scheduled, in force, superseded); rule builder with live weight total, per-rule settings (neutral value, spot-check, cap, stated purpose) and inline feasibility; publish with a required reason and the week it takes effect; plain-language preview. Impact simulation (P1) and AI stage (M5+) to come. Round times and grace window are under Site setup → Settings |
+| Site setup | `/admin/site` | Admin | Tabs: zones & bays (bulk add, deactivate), blocks (bays or a whole zone, with a reason), accessible approvals (flag + end date only), settings (rounds, deadlines, pool, grace, backup admins). User import is P1 |
 | Analytics | `/admin/analytics` | Admin | Utilisation, no-shows, fairness spread, forecast, export |
 | Audit | `/admin/audit` | Admin | Filterable log, export |
 | Gate view | `/gate` | Security | Today's bookings by bay, QR scanner, manual check-in, bay map |
